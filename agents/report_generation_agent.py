@@ -51,12 +51,14 @@ class ReportCompilerTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.storage_manager = storage_manager or DataStorageManager()
-        self.event_engine = EventAnalysisEngine(self.storage_manager)
-        self.conversion_engine = ConversionAnalysisEngine(self.storage_manager)
-        self.retention_engine = RetentionAnalysisEngine(self.storage_manager)
-        self.segmentation_engine = UserSegmentationEngine(self.storage_manager)
-        self.path_engine = PathAnalysisEngine(self.storage_manager)
+        # Initialize components as instance variables (not Pydantic fields)
+        storage_mgr = storage_manager or DataStorageManager()
+        object.__setattr__(self, 'storage_manager', storage_mgr)
+        object.__setattr__(self, 'event_engine', EventAnalysisEngine(storage_mgr))
+        object.__setattr__(self, 'conversion_engine', ConversionAnalysisEngine(storage_mgr))
+        object.__setattr__(self, 'retention_engine', RetentionAnalysisEngine(storage_mgr))
+        object.__setattr__(self, 'segmentation_engine', UserSegmentationEngine(storage_mgr))
+        object.__setattr__(self, 'path_engine', PathAnalysisEngine(storage_mgr))
         
     def _run(self, analysis_scope: Dict[str, Any] = None) -> Dict[str, Any]:
         """
@@ -147,10 +149,10 @@ class ReportCompilerTool(BaseTool):
         try:
             stats = self.storage_manager.get_statistics()
             return {
-                'total_events': stats.get('events_count', 0),
-                'unique_users': stats.get('users_count', 0),
-                'total_sessions': stats.get('sessions_count', 0),
-                'date_range': stats.get('date_range', 'Unknown')
+                'total_events': stats.total_events if stats else 0,
+                'unique_users': stats.total_users if stats else 0,
+                'total_sessions': stats.total_sessions if stats else 0,
+                'date_range': 'Unknown'  # StorageStats doesn't have date_range
             }
         except Exception as e:
             logger.warning(f"获取数据概览失败: {e}")

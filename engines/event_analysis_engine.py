@@ -38,7 +38,7 @@ class EventFrequencyResult:
 class EventTrendResult:
     """事件趋势分析结果"""
     event_name: str
-    trend_data: pd.DataFrame
+    trend_data: Any  # Changed from pd.DataFrame to Any to avoid Pydantic issues
     trend_direction: str  # 'increasing', 'decreasing', 'stable'
     growth_rate: float
     seasonal_pattern: Optional[Dict[str, float]]
@@ -195,7 +195,8 @@ class EventAnalysisEngine:
                            events: Optional[pd.DataFrame] = None,
                            event_types: Optional[List[str]] = None,
                            time_granularity: str = 'daily',
-                           min_data_points: int = 7) -> Dict[str, EventTrendResult]:
+                           min_data_points: int = 7,
+                           date_range: Optional[Tuple[str, str]] = None) -> Dict[str, EventTrendResult]:
         """
         分析事件趋势
         
@@ -449,9 +450,10 @@ class EventAnalysisEngine:
             logger.warning(f"异常检测失败: {e}")
             return []   
          
-    def analyze_event_correlations(self,
-                                 events: Optional[pd.DataFrame] = None,
-                                 event_types: Optional[List[str]] = None,
+    def analyze_event_correlation(self,
+                                events: Optional[pd.DataFrame] = None,
+                                event_types: Optional[List[str]] = None,
+                                date_range: Optional[Tuple[str, str]] = None,
                                  min_co_occurrence: int = 10) -> List[EventCorrelationResult]:
         """
         分析事件关联性
@@ -615,14 +617,25 @@ class EventAnalysisEngine:
             ])
             
             # 执行卡方检验
-            if contingency_table.sum() > 0 and np.all(contingency_table >= 0):
-                chi2, p_value, dof, expected = chi2_contingency(contingency_table)
+            if (contingency_table.sum() > 0 and 
+                np.all(contingency_table >= 0) and 
+                np.all(contingency_table.sum(axis=0) > 0) and 
+                np.all(contingency_table.sum(axis=1) > 0)):
                 
-                # 计算Cramér's V作为相关系数
-                n = contingency_table.sum()
-                cramers_v = np.sqrt(chi2 / (n * (min(contingency_table.shape) - 1)))
-                
-                return float(cramers_v), float(p_value)
+                try:
+                    chi2, p_value, dof, expected = chi2_contingency(contingency_table)
+                    
+                    # 检查期望频数是否都大于0
+                    if np.all(expected > 0):
+                        # 计算Cramér's V作为相关系数
+                        n = contingency_table.sum()
+                        cramers_v = np.sqrt(chi2 / (n * (min(contingency_table.shape) - 1)))
+                        return float(cramers_v), float(p_value)
+                    else:
+                        return 0.0, 1.0
+                except ValueError as ve:
+                    logger.warning(f"卡方检验计算错误: {ve}")
+                    return 0.0, 1.0
             else:
                 return 0.0, 1.0
                 
@@ -1031,7 +1044,7 @@ class EventAnalysisEngine:
             # 执行各种分析
             frequency_results = self.calculate_event_frequency(events, event_types)
             trend_results = self.analyze_event_trends(events, event_types)
-            correlation_results = self.analyze_event_correlations(events, event_types)
+            correlation_results = self.analyze_event_correlation(events, event_types)
             key_events = self.identify_key_events(events)
             
             # 生成洞察和建议
@@ -1040,7 +1053,7 @@ class EventAnalysisEngine:
             
             # 基于频次分析生成洞察
             if frequency_results:
-                top_events = sorted(frequency_results.items(), key=lambda x: x[1].get('total_count', 0), reverse=True)[:3]
+                top_events = sorted(frequency_results.items(), key=lambda x: x[1].total_count if hasattr(x[1], 'total_count') else 0, reverse=True)[:3]
                 insights.append(f"最活跃的事件类型: {', '.join([event for event, _ in top_events])}")
                 
                 if len(frequency_results) > 5:
@@ -1049,15 +1062,27 @@ class EventAnalysisEngine:
             # 基于趋势分析生成洞察
             if trend_results:
                 increasing_trends = [event for event, data in trend_results.items() 
-                                   if data.get('trend_direction') == 'increasing']
+                                   if (hasattr(data, 'trend_direction') and data.trend_direction == 'increasing') or 
+                                      (isinstance(data, dict) and data.get('trend_direction') == 'increasing')]
                 if increasing_trends:
                     insights.append(f"呈上升趋势的事件: {', '.join(increasing_trends[:3])}")
                     recommendations.append("继续优化上升趋势的功能，扩大其影响力")
             
             # 基于关联性分析生成洞察
             if correlation_results:
-                strong_correlations = [f"{pair[0]}-{pair[1]}" for pair, corr in correlation_results.items() 
-                                     if abs(corr.get('correlation_coefficient', 0)) > 0.5]
+                strong_correlations = []
+                if isinstance(correlation_results, dict):
+                    for pair, corr in correlation_results.items():
+                        corr_coeff = 0
+                        if hasattr(corr, 'correlation_coefficient'):
+                            corr_coeff = corr.correlation_coefficient
+                        elif isinstance(corr, dict):
+                            corr_coeff = corr.get('correlation_coefficient', 0)
+                        
+                        if abs(corr_coeff) > 0.5:
+                            if isinstance(pair, tuple) and len(pair) == 2:
+                                strong_correlations.append(f"{pair[0]}-{pair[1]}")
+                
                 if strong_correlations:
                     insights.append(f"发现强关联事件对: {', '.join(strong_correlations[:2])}")
                     recommendations.append("利用事件关联性设计用户引导流程")
@@ -1092,6 +1117,20 @@ class EventAnalysisEngine:
                 'recommendations': []
             }
         
+    def analyze_event_frequency(self, events: Optional[pd.DataFrame] = None, event_types: Optional[List[str]] = None, date_range: Optional[Tuple[str, str]] = None) -> Dict[str, EventFrequencyResult]:
+        """
+        分析事件频次（代理方法）
+        
+        Args:
+            events: 事件数据
+            event_types: 事件类型列表
+            date_range: 日期范围
+            
+        Returns:
+            事件频次分析结果
+        """
+        return self.calculate_event_frequency(events=events, event_types=event_types, date_range=date_range)
+
     def get_analysis_summary(self) -> Dict[str, Any]:
         """
         获取分析摘要

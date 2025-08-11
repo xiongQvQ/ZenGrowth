@@ -521,40 +521,153 @@ def show_system_config_tab():
     
     # API配置
     st.write("### 🔑 API配置")
+    
+    # LLM提供商选择
+    st.write("#### 🤖 LLM提供商配置")
     col1, col2 = st.columns(2)
     
     with col1:
-        current_api_key = system_config.get('api_settings', {}).get('google_api_key', '')
-        new_api_key = st.text_input(
+        default_provider = st.selectbox(
+            "默认LLM提供商",
+            options=["google", "volcano"],
+            index=0 if system_config.get('api_settings', {}).get('default_llm_provider', 'google') == 'google' else 1,
+            help="选择默认使用的LLM提供商"
+        )
+        
+        enabled_providers = st.multiselect(
+            "启用的提供商",
+            options=["google", "volcano"],
+            default=system_config.get('api_settings', {}).get('enabled_providers', ['google', 'volcano']),
+            help="选择要启用的LLM提供商"
+        )
+    
+    with col2:
+        enable_fallback = st.checkbox(
+            "启用提供商回退",
+            value=system_config.get('api_settings', {}).get('enable_fallback', True),
+            help="当主提供商不可用时自动切换到备用提供商"
+        )
+        
+        if enable_fallback:
+            fallback_order = st.multiselect(
+                "回退顺序",
+                options=["google", "volcano"],
+                default=system_config.get('api_settings', {}).get('fallback_order', ['google', 'volcano']),
+                help="提供商回退的优先级顺序"
+            )
+        else:
+            fallback_order = []
+    
+    # Google API配置
+    st.write("#### 🔵 Google Gemini API配置")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        current_google_key = system_config.get('api_settings', {}).get('google_api_key', '')
+        new_google_key = st.text_input(
             "Google API密钥",
-            value=current_api_key[:20] + "..." if len(current_api_key) > 20 else current_api_key,
+            value=current_google_key[:20] + "..." if len(current_google_key) > 20 else current_google_key,
             type="password",
             help="用于访问Google Gemini API的密钥"
         )
         
-        llm_model = st.selectbox(
-            "LLM模型",
+        google_model = st.selectbox(
+            "Google模型",
             options=["gemini-2.5-pro", "gemini-1.5-pro", "gemini-1.5-flash"],
             index=0 if system_config.get('api_settings', {}).get('llm_model') == "gemini-2.5-pro" else 0
         )
     
     with col2:
-        llm_temperature = st.slider(
-            "模型温度",
+        google_temperature = st.slider(
+            "Google模型温度",
             min_value=0.0,
             max_value=2.0,
             value=system_config.get('api_settings', {}).get('llm_temperature', 0.1),
             step=0.1,
-            help="控制模型输出的随机性"
+            help="控制Google模型输出的随机性"
         )
         
-        llm_max_tokens = st.number_input(
-            "最大Token数",
+        google_max_tokens = st.number_input(
+            "Google最大Token数",
             min_value=1000,
             max_value=8000,
             value=system_config.get('api_settings', {}).get('llm_max_tokens', 4000),
             step=500
         )
+    
+    # Volcano API配置
+    st.write("#### 🌋 Volcano ARK API配置")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        current_ark_key = system_config.get('api_settings', {}).get('ark_api_key', '')
+        new_ark_key = st.text_input(
+            "Volcano ARK API密钥",
+            value=current_ark_key[:20] + "..." if len(current_ark_key) > 20 else current_ark_key,
+            type="password",
+            help="用于访问Volcano ARK API的密钥"
+        )
+        
+        ark_base_url = st.text_input(
+            "ARK API基础URL",
+            value=system_config.get('api_settings', {}).get('ark_base_url', 'https://ark.cn-beijing.volces.com/api/v3'),
+            help="Volcano ARK API的基础URL"
+        )
+    
+    with col2:
+        ark_model = st.text_input(
+            "Volcano模型名称",
+            value=system_config.get('api_settings', {}).get('ark_model', 'doubao-seed-1-6-250615'),
+            help="Volcano Doubao模型名称"
+        )
+        
+        ark_temperature = st.slider(
+            "Volcano模型温度",
+            min_value=0.0,
+            max_value=2.0,
+            value=system_config.get('api_settings', {}).get('ark_temperature', 0.1),
+            step=0.1,
+            help="控制Volcano模型输出的随机性"
+        )
+    
+    # 多模态配置
+    st.write("#### 🖼️ 多模态配置")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        enable_multimodal = st.checkbox(
+            "启用多模态支持",
+            value=system_config.get('api_settings', {}).get('enable_multimodal', True),
+            help="启用图片和多媒体内容分析"
+        )
+        
+        max_image_size = st.number_input(
+            "最大图片大小 (MB)",
+            min_value=1,
+            max_value=50,
+            value=system_config.get('api_settings', {}).get('max_image_size_mb', 10),
+            step=1
+        )
+    
+    with col2:
+        if enable_multimodal:
+            supported_formats = st.multiselect(
+                "支持的图片格式",
+                options=["jpg", "jpeg", "png", "gif", "webp", "bmp"],
+                default=system_config.get('api_settings', {}).get('supported_image_formats', ['jpg', 'jpeg', 'png', 'gif', 'webp']),
+                help="选择支持的图片格式"
+            )
+            
+            image_timeout = st.number_input(
+                "图片分析超时 (秒)",
+                min_value=10,
+                max_value=300,
+                value=system_config.get('api_settings', {}).get('image_analysis_timeout', 60),
+                step=10
+            )
+        else:
+            supported_formats = []
+            image_timeout = 60
     
     # 数据处理配置
     st.write("### 💾 数据处理配置")
@@ -625,20 +738,40 @@ def show_system_config_tab():
     # 保存配置按钮
     if st.button("💾 保存系统配置", type="primary"):
         try:
-            # 更新API配置
-            if new_api_key and new_api_key != current_api_key[:20] + "...":
-                config_manager.update_system_config('api_settings', {
-                    'google_api_key': new_api_key,
-                    'llm_model': llm_model,
-                    'llm_temperature': llm_temperature,
-                    'llm_max_tokens': llm_max_tokens
-                })
-            else:
-                config_manager.update_system_config('api_settings', {
-                    'llm_model': llm_model,
-                    'llm_temperature': llm_temperature,
-                    'llm_max_tokens': llm_max_tokens
-                })
+            # 构建API配置字典
+            api_config = {
+                # 提供商配置
+                'default_llm_provider': default_provider,
+                'enabled_providers': enabled_providers,
+                'enable_fallback': enable_fallback,
+                'fallback_order': fallback_order,
+                
+                # Google配置
+                'llm_model': google_model,
+                'llm_temperature': google_temperature,
+                'llm_max_tokens': google_max_tokens,
+                
+                # Volcano配置
+                'ark_base_url': ark_base_url,
+                'ark_model': ark_model,
+                'ark_temperature': ark_temperature,
+                
+                # 多模态配置
+                'enable_multimodal': enable_multimodal,
+                'max_image_size_mb': max_image_size,
+                'supported_image_formats': supported_formats,
+                'image_analysis_timeout': image_timeout
+            }
+            
+            # 更新API密钥（如果有变化）
+            if new_google_key and new_google_key != current_google_key[:20] + "...":
+                api_config['google_api_key'] = new_google_key
+            
+            if new_ark_key and new_ark_key != current_ark_key[:20] + "...":
+                api_config['ark_api_key'] = new_ark_key
+            
+            # 保存API配置
+            config_manager.update_system_config('api_settings', api_config)
             
             # 更新数据处理配置
             config_manager.update_system_config('data_processing', {

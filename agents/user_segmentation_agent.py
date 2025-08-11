@@ -9,6 +9,419 @@ import logging
 from typing import Dict, List, Any, Optional, Tuple
 import pandas as pd
 
+from engines.user_segmentation_engine import UserSegmentationEngine, SegmentationResult
+from tools.data_storage_manager import DataStorageManager
+
+# Try to import CrewAI components, but handle import errors gracefully
+try:
+    from crewai import Agent
+    from crewai.tools import BaseTool
+    from pydantic import BaseModel, Field
+    from config.crew_config import get_llm
+    CREWAI_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"CrewAI not available: {e}. Agent will work in standalone mode.")
+    CREWAI_AVAILABLE = False
+    
+    # Create mock classes for compatibility
+    class BaseTool:
+        def __init__(self):
+            self.name = ""
+            self.description = ""
+            
+    class Agent:
+        def __init__(self, **kwargs):
+            pass
+
+logger = logging.getLogger(__name__)
+
+
+class FeatureExtractionTool(BaseTool):
+    """特征提取工具"""
+    
+    name: str = "feature_extraction"
+    description: str = "从用户行为数据中提取分群特征"
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__()
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', UserSegmentationEngine(storage_manager))
+        
+    def _run(self, feature_types: List[str] = None) -> Dict[str, Any]:
+        """
+        执行特征提取
+        
+        Args:
+            feature_types: 特征类型列表 ['behavioral', 'demographic', 'engagement', 'conversion', 'temporal']
+            
+        Returns:
+            特征提取结果
+        """
+        try:
+            if feature_types is None:
+                feature_types = ['behavioral', 'demographic', 'engagement']
+                
+            result = self.engine.extract_user_features(feature_types)
+            
+            return {
+                'success': True,
+                'feature_types': feature_types,
+                'user_count': len(result),
+                'feature_summary': self._summarize_features(result)
+            }
+            
+        except Exception as e:
+            logger.error(f"特征提取失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'feature_types': feature_types or []
+            }
+    
+    def _summarize_features(self, features: List[Any]) -> Dict[str, Any]:
+        """总结特征信息"""
+        if not features:
+            return {}
+        
+        # 这里应该根据实际的特征数据结构来实现
+        return {
+            'total_features': len(features),
+            'feature_dimensions': 'varies'  # 实际实现中应该计算特征维度
+        }
+
+
+class ClusteringAnalysisTool(BaseTool):
+    """聚类分析工具"""
+    
+    name: str = "clustering_analysis"
+    description: str = "执行用户聚类分析，生成用户分群"
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__()
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', UserSegmentationEngine(storage_manager))
+        
+    def _run(self, n_clusters: int = 5, clustering_method: str = 'kmeans') -> Dict[str, Any]:
+        """
+        执行聚类分析
+        
+        Args:
+            n_clusters: 聚类数量
+            clustering_method: 聚类方法 ('kmeans', 'dbscan')
+            
+        Returns:
+            聚类分析结果
+        """
+        try:
+            result = self.engine.perform_clustering(
+                n_clusters=n_clusters,
+                method=clustering_method
+            )
+            
+            return {
+                'success': True,
+                'clustering_method': clustering_method,
+                'n_clusters': len(result.segments),
+                'total_users_clustered': sum(segment.user_count for segment in result.segments),
+                'silhouette_score': result.quality_metrics.get('silhouette_score', 0),
+                'segments': [
+                    {
+                        'segment_id': segment.segment_id,
+                        'segment_name': segment.segment_name,
+                        'user_count': segment.user_count,
+                        'key_characteristics': segment.key_characteristics
+                    }
+                    for segment in result.segments
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"聚类分析失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'clustering_method': clustering_method
+            }
+
+
+class SegmentProfilingTool(BaseTool):
+    """分群画像工具"""
+    
+    name: str = "segment_profiling"
+    description: str = "生成用户分群的详细画像和特征描述"
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__()
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', UserSegmentationEngine(storage_manager))
+        
+    def _run(self, segment_id: int) -> Dict[str, Any]:
+        """
+        生成分群画像
+        
+        Args:
+            segment_id: 分群ID
+            
+        Returns:
+            分群画像结果
+        """
+        try:
+            result = self.engine.generate_segment_profile(segment_id)
+            
+            return {
+                'success': True,
+                'segment_id': segment_id,
+                'segment_profile': result
+            }
+            
+        except Exception as e:
+            logger.error(f"分群画像生成失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'segment_id': segment_id
+            }
+
+
+class UserSegmentationAgent:
+    """用户分群智能体"""
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        """
+        初始化用户分群智能体
+        
+        Args:
+            storage_manager: 数据存储管理器
+        """
+        self.storage_manager = storage_manager
+        self.engine = UserSegmentationEngine(storage_manager)
+        
+        # 初始化工具
+        self.feature_tool = FeatureExtractionTool(storage_manager)
+        self.clustering_tool = ClusteringAnalysisTool(storage_manager)
+        self.profiling_tool = SegmentProfilingTool(storage_manager)
+        
+        # 如果CrewAI可用，创建CrewAI智能体
+        if CREWAI_AVAILABLE:
+            self._create_crewai_agent()
+        
+        logger.info("用户分群智能体初始化完成")
+    
+    def _create_crewai_agent(self):
+        """创建CrewAI智能体"""
+        try:
+            self.agent = Agent(
+                role="用户分群专家",
+                goal="分析用户行为特征，构建用户分群，生成用户画像",
+                backstory="""
+                你是一位经验丰富的用户分群专家，专门分析用户行为数据来识别不同的用户群体。
+                你擅长特征工程、聚类分析和用户画像生成，能够为精准营销和个性化推荐提供数据支持。
+                你的分析帮助业务团队更好地理解用户需求和行为模式。
+                """,
+                tools=[self.feature_tool, self.clustering_tool, self.profiling_tool],
+                llm=get_llm(),
+                verbose=True,
+                allow_delegation=False
+            )
+        except Exception as e:
+            logger.warning(f"CrewAI智能体创建失败: {e}")
+            self.agent = None
+    
+    def extract_user_features(self, feature_types: List[str] = None) -> Dict[str, Any]:
+        """
+        提取用户特征
+        
+        Args:
+            feature_types: 特征类型列表
+            
+        Returns:
+            特征提取结果
+        """
+        logger.info(f"提取用户特征: {feature_types}")
+        
+        try:
+            if feature_types is None:
+                feature_types = ['behavioral', 'demographic', 'engagement']
+            
+            result = self.engine.extract_user_features(feature_types)
+            
+            return {
+                'success': True,
+                'feature_types': feature_types,
+                'user_count': len(result),
+                'features_extracted': True
+            }
+            
+        except Exception as e:
+            logger.error(f"特征提取失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def perform_clustering(self, n_clusters: int = 5, method: str = 'kmeans') -> Dict[str, Any]:
+        """
+        执行用户聚类
+        
+        Args:
+            n_clusters: 聚类数量
+            method: 聚类方法
+            
+        Returns:
+            聚类结果
+        """
+        logger.info(f"执行用户聚类: {method}, 聚类数: {n_clusters}")
+        
+        try:
+            result = self.engine.perform_clustering(
+                n_clusters=n_clusters,
+                method=method
+            )
+            
+            return {
+                'success': True,
+                'clustering_method': method,
+                'n_clusters': len(result.segments),
+                'total_users_clustered': sum(segment.user_count for segment in result.segments),
+                'quality_metrics': result.quality_metrics,
+                'segments': [
+                    {
+                        'segment_id': segment.segment_id,
+                        'segment_name': segment.segment_name,
+                        'user_count': segment.user_count,
+                        'key_characteristics': segment.key_characteristics,
+                        'avg_features': segment.avg_features
+                    }
+                    for segment in result.segments
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"用户聚类失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def comprehensive_segmentation_analysis(self) -> Dict[str, Any]:
+        """
+        执行综合分群分析
+        
+        Returns:
+            综合分群分析结果
+        """
+        logger.info("开始执行综合分群分析")
+        
+        try:
+            results = {
+                'success': True,
+                'analysis_timestamp': pd.Timestamp.now().isoformat(),
+                'analyses': {}
+            }
+            
+            # 1. 特征提取
+            logger.info("执行特征提取...")
+            feature_result = self.extract_user_features(['behavioral', 'demographic', 'engagement'])
+            results['analyses']['feature_extraction'] = feature_result
+            
+            # 2. 聚类分析
+            logger.info("执行聚类分析...")
+            clustering_result = self.perform_clustering(5, 'kmeans')
+            results['analyses']['clustering_analysis'] = clustering_result
+            
+            # 3. 生成分群画像
+            logger.info("生成分群画像...")
+            if clustering_result.get('success') and clustering_result.get('segments'):
+                profiles = []
+                for segment in clustering_result['segments'][:3]:  # 只为前3个分群生成画像
+                    profile_result = self.profiling_tool._run(segment['segment_id'])
+                    profiles.append(profile_result)
+                results['analyses']['segment_profiling'] = profiles
+            
+            # 4. 生成分析摘要
+            results['summary'] = self._generate_analysis_summary(results['analyses'])
+            
+            logger.info("综合分群分析完成")
+            return results
+            
+        except Exception as e:
+            logger.error(f"综合分群分析失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'analysis_timestamp': pd.Timestamp.now().isoformat()
+            }
+    
+    def _generate_analysis_summary(self, analyses: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        生成分析摘要
+        
+        Args:
+            analyses: 分析结果字典
+            
+        Returns:
+            分析摘要
+        """
+        summary = {
+            'total_analyses': len(analyses),
+            'successful_analyses': sum(1 for result in analyses.values() if isinstance(result, dict) and result.get('success', False)),
+            'key_insights': []
+        }
+        
+        try:
+            # 从特征提取中提取洞察
+            feature_analysis = analyses.get('feature_extraction', {})
+            if feature_analysis.get('success'):
+                user_count = feature_analysis.get('user_count', 0)
+                feature_types = feature_analysis.get('feature_types', [])
+                summary['key_insights'].append(f"提取了 {user_count} 个用户的 {len(feature_types)} 类特征")
+            
+            # 从聚类分析中提取洞察
+            clustering_analysis = analyses.get('clustering_analysis', {})
+            if clustering_analysis.get('success'):
+                n_clusters = clustering_analysis.get('n_clusters', 0)
+                total_users = clustering_analysis.get('total_users_clustered', 0)
+                quality_score = clustering_analysis.get('quality_metrics', {}).get('silhouette_score', 0)
+                summary['key_insights'].append(f"将 {total_users} 个用户分为 {n_clusters} 个群体")
+                if quality_score > 0:
+                    summary['key_insights'].append(f"聚类质量得分: {quality_score:.3f}")
+            
+        except Exception as e:
+            logger.warning(f"生成分析摘要时出错: {e}")
+        
+        return summary
+    
+    def get_agent_status(self) -> Dict[str, Any]:
+        """
+        获取智能体状态
+        
+        Returns:
+            智能体状态信息
+        """
+        return {
+            'agent_type': 'UserSegmentationAgent',
+            'crewai_available': CREWAI_AVAILABLE,
+            'crewai_agent_created': hasattr(self, 'agent') and self.agent is not None,
+            'storage_manager_available': self.storage_manager is not None,
+            'engine_available': self.engine is not None,
+            'tools_count': 3,
+            'tools': ['feature_extraction', 'clustering_analysis', 'segment_profiling']
+        }
+
+
+# 为了向后兼容，提供一个简单的工厂函数
+def create_user_segmentation_agent(storage_manager: DataStorageManager = None) -> UserSegmentationAgent:
+    """
+    创建用户分群智能体实例
+    
+    Args:
+        storage_manager: 数据存储管理器
+        
+    Returns:
+        用户分群智能体实例
+    """
+    return UserSegmentationAgent(storage_manager)
+
 from engines.user_segmentation_engine import UserSegmentationEngine, UserFeatures, UserSegment, SegmentationResult
 from tools.data_storage_manager import DataStorageManager
 
@@ -44,7 +457,8 @@ class FeatureExtractionTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.engine = UserSegmentationEngine(storage_manager)
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', UserSegmentationEngine(storage_manager))
         
     def _run(self, include_behavioral: bool = True, include_demographic: bool = True, 
              include_engagement: bool = True, include_conversion: bool = True, 
@@ -196,7 +610,8 @@ class ClusteringAnalysisTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.engine = UserSegmentationEngine(storage_manager)
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', UserSegmentationEngine(storage_manager))
         
     def _run(self, method: str = 'kmeans', n_clusters: int = 5, 
              user_features: Optional[List[Dict]] = None, **kwargs) -> Dict[str, Any]:
@@ -330,7 +745,8 @@ class SegmentProfileTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.engine = UserSegmentationEngine(storage_manager)
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', UserSegmentationEngine(storage_manager))
         
     def _run(self, segments: List[Dict[str, Any]]) -> Dict[str, Any]:
         """

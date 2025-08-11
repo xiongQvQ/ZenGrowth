@@ -9,6 +9,415 @@ import logging
 from typing import Dict, List, Any, Optional, Tuple
 import pandas as pd
 
+from engines.conversion_analysis_engine import ConversionAnalysisEngine, ConversionAnalysisResult
+from tools.data_storage_manager import DataStorageManager
+
+# Try to import CrewAI components, but handle import errors gracefully
+try:
+    from crewai import Agent
+    from crewai.tools import BaseTool
+    from pydantic import BaseModel, Field
+    from config.crew_config import get_llm
+    CREWAI_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"CrewAI not available: {e}. Agent will work in standalone mode.")
+    CREWAI_AVAILABLE = False
+    
+    # Create mock classes for compatibility
+    class BaseTool:
+        def __init__(self):
+            self.name = ""
+            self.description = ""
+            
+    class Agent:
+        def __init__(self, **kwargs):
+            pass
+
+logger = logging.getLogger(__name__)
+
+
+class FunnelAnalysisTool(BaseTool):
+    """漏斗分析工具"""
+    
+    name: str = "funnel_analysis"
+    description: str = "构建和分析转化漏斗，识别转化瓶颈"
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__()
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', ConversionAnalysisEngine(storage_manager))
+        
+    def _run(self, funnel_steps: List[str], time_window: int = 7) -> Dict[str, Any]:
+        """
+        执行漏斗分析
+        
+        Args:
+            funnel_steps: 漏斗步骤列表
+            time_window: 时间窗口（天）
+            
+        Returns:
+            漏斗分析结果
+        """
+        try:
+            result = self.engine.build_conversion_funnel(
+                funnel_steps=funnel_steps,
+                time_window_days=time_window
+            )
+            
+            return {
+                'success': True,
+                'funnel_name': result.funnel_name,
+                'overall_conversion_rate': result.overall_conversion_rate,
+                'total_users_entered': result.total_users_entered,
+                'total_users_converted': result.total_users_converted,
+                'bottleneck_step': result.bottleneck_step,
+                'steps': [
+                    {
+                        'step_name': step.step_name,
+                        'step_order': step.step_order,
+                        'total_users': step.total_users,
+                        'conversion_rate': step.conversion_rate,
+                        'drop_off_rate': step.drop_off_rate
+                    }
+                    for step in result.steps
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"漏斗分析失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'funnel_steps': funnel_steps
+            }
+
+
+class ConversionRateAnalysisTool(BaseTool):
+    """转化率分析工具"""
+    
+    name: str = "conversion_rate_analysis"
+    description: str = "分析不同维度的转化率，包括时间趋势和用户群体对比"
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__()
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', ConversionAnalysisEngine(storage_manager))
+        
+    def _run(self, conversion_event: str, dimension: str = 'daily') -> Dict[str, Any]:
+        """
+        执行转化率分析
+        
+        Args:
+            conversion_event: 转化事件名称
+            dimension: 分析维度 ('daily', 'weekly', 'monthly', 'channel', 'device')
+            
+        Returns:
+            转化率分析结果
+        """
+        try:
+            result = self.engine.analyze_conversion_rates(
+                conversion_event=conversion_event,
+                dimension=dimension
+            )
+            
+            return {
+                'success': True,
+                'conversion_event': conversion_event,
+                'dimension': dimension,
+                'conversion_rates': result
+            }
+            
+        except Exception as e:
+            logger.error(f"转化率分析失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'conversion_event': conversion_event
+            }
+
+
+class AttributionAnalysisTool(BaseTool):
+    """归因分析工具"""
+    
+    name: str = "attribution_analysis"
+    description: str = "分析转化归因，识别关键触点和渠道贡献"
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__()
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', ConversionAnalysisEngine(storage_manager))
+        
+    def _run(self, attribution_model: str = 'first_touch') -> Dict[str, Any]:
+        """
+        执行归因分析
+        
+        Args:
+            attribution_model: 归因模型 ('first_touch', 'last_touch', 'linear')
+            
+        Returns:
+            归因分析结果
+        """
+        try:
+            result = self.engine.analyze_attribution(attribution_model)
+            
+            return {
+                'success': True,
+                'attribution_model': attribution_model,
+                'attribution_results': result
+            }
+            
+        except Exception as e:
+            logger.error(f"归因分析失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'attribution_model': attribution_model
+            }
+
+
+class ConversionAnalysisAgent:
+    """转化分析智能体"""
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        """
+        初始化转化分析智能体
+        
+        Args:
+            storage_manager: 数据存储管理器
+        """
+        self.storage_manager = storage_manager
+        self.engine = ConversionAnalysisEngine(storage_manager)
+        
+        # 初始化工具
+        self.funnel_tool = FunnelAnalysisTool(storage_manager)
+        self.conversion_rate_tool = ConversionRateAnalysisTool(storage_manager)
+        self.attribution_tool = AttributionAnalysisTool(storage_manager)
+        
+        # 如果CrewAI可用，创建CrewAI智能体
+        if CREWAI_AVAILABLE:
+            self._create_crewai_agent()
+        
+        logger.info("转化分析智能体初始化完成")
+    
+    def _create_crewai_agent(self):
+        """创建CrewAI智能体"""
+        try:
+            self.agent = Agent(
+                role="转化分析专家",
+                goal="分析用户转化路径，识别转化瓶颈，优化转化漏斗",
+                backstory="""
+                你是一位经验丰富的转化分析专家，专门分析用户转化行为和优化转化流程。
+                你擅长构建转化漏斗、识别转化瓶颈和分析归因模型，能够为业务增长提供数据驱动的建议。
+                你的分析帮助产品和营销团队提升转化率和用户价值。
+                """,
+                tools=[self.funnel_tool, self.conversion_rate_tool, self.attribution_tool],
+                llm=get_llm(),
+                verbose=True,
+                allow_delegation=False
+            )
+        except Exception as e:
+            logger.warning(f"CrewAI智能体创建失败: {e}")
+            self.agent = None
+    
+    def build_conversion_funnel(self, funnel_steps: List[str], time_window: int = 7) -> Dict[str, Any]:
+        """
+        构建转化漏斗
+        
+        Args:
+            funnel_steps: 漏斗步骤列表
+            time_window: 时间窗口（天）
+            
+        Returns:
+            转化漏斗分析结果
+        """
+        logger.info(f"构建转化漏斗: {funnel_steps}")
+        
+        try:
+            result = self.engine.build_conversion_funnel(
+                funnel_steps=funnel_steps,
+                time_window_days=time_window
+            )
+            
+            return {
+                'success': True,
+                'funnel_name': result.funnel_name,
+                'overall_conversion_rate': result.overall_conversion_rate,
+                'total_users_entered': result.total_users_entered,
+                'total_users_converted': result.total_users_converted,
+                'bottleneck_step': result.bottleneck_step,
+                'avg_completion_time': result.avg_completion_time,
+                'steps': [
+                    {
+                        'step_name': step.step_name,
+                        'step_order': step.step_order,
+                        'total_users': step.total_users,
+                        'conversion_rate': step.conversion_rate,
+                        'drop_off_rate': step.drop_off_rate,
+                        'avg_time_to_next_step': step.avg_time_to_next_step,
+                        'median_time_to_next_step': step.median_time_to_next_step
+                    }
+                    for step in result.steps
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"构建转化漏斗失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'funnel_steps': funnel_steps
+            }
+    
+    def analyze_conversion_rates(self, conversion_event: str, dimension: str = 'daily') -> Dict[str, Any]:
+        """
+        分析转化率
+        
+        Args:
+            conversion_event: 转化事件名称
+            dimension: 分析维度
+            
+        Returns:
+            转化率分析结果
+        """
+        logger.info(f"分析转化率: {conversion_event}, 维度: {dimension}")
+        
+        try:
+            result = self.engine.analyze_conversion_rates(
+                conversion_event=conversion_event,
+                dimension=dimension
+            )
+            
+            return {
+                'success': True,
+                'conversion_event': conversion_event,
+                'dimension': dimension,
+                'conversion_rates': result
+            }
+            
+        except Exception as e:
+            logger.error(f"转化率分析失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def comprehensive_conversion_analysis(self) -> Dict[str, Any]:
+        """
+        执行综合转化分析
+        
+        Returns:
+            综合转化分析结果
+        """
+        logger.info("开始执行综合转化分析")
+        
+        try:
+            results = {
+                'success': True,
+                'analysis_timestamp': pd.Timestamp.now().isoformat(),
+                'analyses': {}
+            }
+            
+            # 1. 默认漏斗分析
+            logger.info("执行默认转化漏斗分析...")
+            default_funnel = ['page_view', 'sign_up', 'purchase']
+            funnel_result = self.build_conversion_funnel(default_funnel, 7)
+            results['analyses']['funnel_analysis'] = funnel_result
+            
+            # 2. 转化率趋势分析
+            logger.info("执行转化率趋势分析...")
+            rate_result = self.analyze_conversion_rates('purchase', 'daily')
+            results['analyses']['conversion_rate_analysis'] = rate_result
+            
+            # 3. 归因分析
+            logger.info("执行归因分析...")
+            attribution_result = self.attribution_tool._run('first_touch')
+            results['analyses']['attribution_analysis'] = attribution_result
+            
+            # 4. 生成分析摘要
+            results['summary'] = self._generate_analysis_summary(results['analyses'])
+            
+            logger.info("综合转化分析完成")
+            return results
+            
+        except Exception as e:
+            logger.error(f"综合转化分析失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'analysis_timestamp': pd.Timestamp.now().isoformat()
+            }
+    
+    def _generate_analysis_summary(self, analyses: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        生成分析摘要
+        
+        Args:
+            analyses: 分析结果字典
+            
+        Returns:
+            分析摘要
+        """
+        summary = {
+            'total_analyses': len(analyses),
+            'successful_analyses': sum(1 for result in analyses.values() if result.get('success', False)),
+            'key_insights': []
+        }
+        
+        try:
+            # 从漏斗分析中提取关键洞察
+            funnel_analysis = analyses.get('funnel_analysis', {})
+            if funnel_analysis.get('success'):
+                overall_rate = funnel_analysis.get('overall_conversion_rate', 0)
+                bottleneck = funnel_analysis.get('bottleneck_step')
+                total_users = funnel_analysis.get('total_users_entered', 0)
+                
+                summary['key_insights'].append(f"整体转化率: {overall_rate:.2%}")
+                summary['key_insights'].append(f"分析了 {total_users} 个用户的转化路径")
+                if bottleneck:
+                    summary['key_insights'].append(f"转化瓶颈: {bottleneck}")
+            
+            # 从转化率分析中提取洞察
+            rate_analysis = analyses.get('conversion_rate_analysis', {})
+            if rate_analysis.get('success'):
+                conversion_event = rate_analysis.get('conversion_event')
+                summary['key_insights'].append(f"分析了 {conversion_event} 事件的转化趋势")
+            
+        except Exception as e:
+            logger.warning(f"生成分析摘要时出错: {e}")
+        
+        return summary
+    
+    def get_agent_status(self) -> Dict[str, Any]:
+        """
+        获取智能体状态
+        
+        Returns:
+            智能体状态信息
+        """
+        return {
+            'agent_type': 'ConversionAnalysisAgent',
+            'crewai_available': CREWAI_AVAILABLE,
+            'crewai_agent_created': hasattr(self, 'agent') and self.agent is not None,
+            'storage_manager_available': self.storage_manager is not None,
+            'engine_available': self.engine is not None,
+            'tools_count': 3,
+            'tools': ['funnel_analysis', 'conversion_rate_analysis', 'attribution_analysis']
+        }
+
+
+# 为了向后兼容，提供一个简单的工厂函数
+def create_conversion_analysis_agent(storage_manager: DataStorageManager = None) -> ConversionAnalysisAgent:
+    """
+    创建转化分析智能体实例
+    
+    Args:
+        storage_manager: 数据存储管理器
+        
+    Returns:
+        转化分析智能体实例
+    """
+    return ConversionAnalysisAgent(storage_manager)
+
 from engines.conversion_analysis_engine import ConversionAnalysisEngine
 from tools.data_storage_manager import DataStorageManager
 
@@ -44,7 +453,8 @@ class FunnelAnalysisTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.engine = ConversionAnalysisEngine(storage_manager)
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', ConversionAnalysisEngine(storage_manager))
         
     def _run(self, funnel_steps: List[str], funnel_name: str = "custom_funnel", time_window_hours: int = 24) -> Dict[str, Any]:
         """
@@ -183,7 +593,8 @@ class ConversionRateAnalysisTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.engine = ConversionAnalysisEngine(storage_manager)
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', ConversionAnalysisEngine(storage_manager))
         
     def _run(self, funnel_definitions: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
         """
@@ -318,7 +729,8 @@ class BottleneckIdentificationTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.engine = ConversionAnalysisEngine(storage_manager)
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', ConversionAnalysisEngine(storage_manager))
         
     def _run(self, funnel_steps: List[str] = None) -> Dict[str, Any]:
         """
@@ -424,7 +836,8 @@ class ConversionPathAnalysisTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.engine = ConversionAnalysisEngine(storage_manager)
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', ConversionAnalysisEngine(storage_manager))
         
     def _run(self, funnel_steps: List[str], time_window_hours: int = 24) -> Dict[str, Any]:
         """

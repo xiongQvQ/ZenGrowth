@@ -315,7 +315,7 @@ class ErrorHandler:
 # 多模态内容模型已移至 config.multimodal_content_handler
 
 
-class VolcanoLLMClient(LLM):
+class MultiModalContentHandler:
     """多模态内容处理器"""
     
     def __init__(self, max_image_size_mb: int = 10):
@@ -1121,8 +1121,8 @@ class VolcanoLLMClient(LLM):
             raise e
         except Exception as e:
             # 处理未预期的异常
-            error_type = self._error_handler.classify_error(e)
-            volcano_exception = self._error_handler.create_exception(e, error_type)
+            error_type = self.error_handler.classify_error(e)
+            volcano_exception = self.error_handler.create_exception(e, error_type)
             logger.error(f"Volcano API调用出现未预期错误: {volcano_exception}")
             if run_manager:
                 run_manager.on_llm_error(volcano_exception)
@@ -1166,8 +1166,8 @@ class VolcanoLLMClient(LLM):
                 )])
             except Exception as e:
                 # 处理未预期的异常
-                error_type = self._error_handler.classify_error(e)
-                volcano_exception = self._error_handler.create_exception(e, error_type)
+                error_type = self.error_handler.classify_error(e)
+                volcano_exception = self.error_handler.create_exception(e, error_type)
                 logger.error(f"生成文本出现未预期错误 (prompt {i+1}/{len(prompts)}): {volcano_exception}")
                 generations.append([Generation(
                     text="", 
@@ -1260,10 +1260,10 @@ class VolcanoLLMClient(LLM):
                 
             except Exception as original_error:
                 # 分类错误
-                error_type = self._error_handler.classify_error(original_error)
+                error_type = self.error_handler.classify_error(original_error)
                 
                 # 创建自定义异常
-                volcano_exception = self._error_handler.create_exception(original_error, error_type)
+                volcano_exception = self.error_handler.create_exception(original_error, error_type)
                 
                 # 判断是否应该重试
                 will_retry = (
@@ -1272,7 +1272,7 @@ class VolcanoLLMClient(LLM):
                 )
                 
                 # 记录错误日志
-                self._error_handler.log_error(volcano_exception, attempt + 1, will_retry)
+                self.error_handler.log_error(volcano_exception, attempt + 1, will_retry)
                 
                 # 如果不重试，抛出异常
                 if not will_retry:
@@ -1290,7 +1290,7 @@ class VolcanoLLMClient(LLM):
                     raise volcano_exception
                 
                 # 计算重试延迟
-                delay = self._error_handler.calculate_delay(
+                delay = self.error_handler.calculate_delay(
                     attempt, 
                     error_type, 
                     volcano_exception.retry_after
@@ -1847,7 +1847,7 @@ class VolcanoLLMClient(LLM):
             
         except Exception as e:
             test_end_time = time.time()
-            error_type = self._error_handler.classify_error(e)
+            error_type = self.error_handler.classify_error(e)
             test_result.update({
                 "success": False,
                 "response_time": test_end_time - test_start_time,
@@ -1865,12 +1865,12 @@ class VolcanoLLMClient(LLM):
         Returns:
             错误统计字典
         """
-        return self._error_handler.get_error_stats()
+        return self.error_handler.get_error_stats()
     
     def reset_error_statistics(self):
         """重置错误统计信息"""
-        self._error_handler.error_counts.clear()
-        self._error_handler.last_errors.clear()
+        self.error_handler.error_counts.clear()
+        self.error_handler.last_errors.clear()
         logger.info("Volcano API错误统计信息已重置")
     
     def update_retry_config(self, **kwargs):

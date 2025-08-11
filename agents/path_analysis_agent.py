@@ -9,6 +9,457 @@ import logging
 from typing import Dict, List, Any, Optional, Tuple
 import pandas as pd
 
+from engines.path_analysis_engine import PathAnalysisEngine, PathAnalysisResult
+from tools.data_storage_manager import DataStorageManager
+
+# Try to import CrewAI components, but handle import errors gracefully
+try:
+    from crewai import Agent
+    from crewai.tools import BaseTool
+    from pydantic import BaseModel, Field
+    from config.crew_config import get_llm
+    CREWAI_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"CrewAI not available: {e}. Agent will work in standalone mode.")
+    CREWAI_AVAILABLE = False
+    
+    # Create mock classes for compatibility
+    class BaseTool:
+        def __init__(self):
+            self.name = ""
+            self.description = ""
+            
+    class Agent:
+        def __init__(self, **kwargs):
+            pass
+
+logger = logging.getLogger(__name__)
+
+
+class SessionReconstructionTool(BaseTool):
+    """会话重构工具"""
+    
+    name: str = "session_reconstruction"
+    description: str = "重构用户会话，识别用户行为路径"
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__()
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', PathAnalysisEngine(storage_manager))
+        
+    def _run(self, session_timeout: int = 30) -> Dict[str, Any]:
+        """
+        执行会话重构
+        
+        Args:
+            session_timeout: 会话超时时间（分钟）
+            
+        Returns:
+            会话重构结果
+        """
+        try:
+            result = self.engine.reconstruct_user_sessions(session_timeout)
+            
+            return {
+                'success': True,
+                'session_timeout': session_timeout,
+                'total_sessions': len(result),
+                'session_summary': self._summarize_sessions(result)
+            }
+            
+        except Exception as e:
+            logger.error(f"会话重构失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'session_timeout': session_timeout
+            }
+    
+    def _summarize_sessions(self, sessions: List[Any]) -> Dict[str, Any]:
+        """总结会话信息"""
+        if not sessions:
+            return {}
+        
+        return {
+            'total_sessions': len(sessions),
+            'avg_session_duration': 'varies',  # 实际实现中应该计算平均时长
+            'avg_events_per_session': 'varies'  # 实际实现中应该计算平均事件数
+        }
+
+
+class PathMiningTool(BaseTool):
+    """路径挖掘工具"""
+    
+    name: str = "path_mining"
+    description: str = "挖掘常见的用户行为路径模式"
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__()
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', PathAnalysisEngine(storage_manager))
+        
+    def _run(self, min_support: float = 0.01, max_length: int = 10) -> Dict[str, Any]:
+        """
+        执行路径挖掘
+        
+        Args:
+            min_support: 最小支持度
+            max_length: 最大路径长度
+            
+        Returns:
+            路径挖掘结果
+        """
+        try:
+            result = self.engine.mine_frequent_paths(
+                min_support=min_support,
+                max_length=max_length
+            )
+            
+            return {
+                'success': True,
+                'min_support': min_support,
+                'max_length': max_length,
+                'frequent_paths_count': len(result),
+                'paths': [
+                    {
+                        'pattern_id': path.pattern_id,
+                        'path_sequence': path.path_sequence,
+                        'frequency': path.frequency,
+                        'user_count': path.user_count,
+                        'conversion_rate': path.conversion_rate
+                    }
+                    for path in result[:10]  # 只返回前10个路径
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"路径挖掘失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'min_support': min_support
+            }
+
+
+class FlowAnalysisTool(BaseTool):
+    """流程分析工具"""
+    
+    name: str = "flow_analysis"
+    description: str = "分析用户流程，识别流失点和优化机会"
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__()
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', PathAnalysisEngine(storage_manager))
+        
+    def _run(self, flow_steps: List[str] = None) -> Dict[str, Any]:
+        """
+        执行流程分析
+        
+        Args:
+            flow_steps: 流程步骤列表
+            
+        Returns:
+            流程分析结果
+        """
+        try:
+            if flow_steps is None:
+                flow_steps = ['landing', 'browse', 'add_to_cart', 'checkout', 'purchase']
+            
+            result = self.engine.analyze_user_flow(flow_steps)
+            
+            return {
+                'success': True,
+                'flow_steps': flow_steps,
+                'flow_analysis': result
+            }
+            
+        except Exception as e:
+            logger.error(f"流程分析失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'flow_steps': flow_steps or []
+            }
+
+
+class PathAnalysisAgent:
+    """路径分析智能体"""
+    
+    def __init__(self, storage_manager: DataStorageManager = None):
+        """
+        初始化路径分析智能体
+        
+        Args:
+            storage_manager: 数据存储管理器
+        """
+        self.storage_manager = storage_manager
+        self.engine = PathAnalysisEngine(storage_manager)
+        
+        # 初始化工具
+        self.session_tool = SessionReconstructionTool(storage_manager)
+        self.mining_tool = PathMiningTool(storage_manager)
+        self.flow_tool = FlowAnalysisTool(storage_manager)
+        
+        # 如果CrewAI可用，创建CrewAI智能体
+        if CREWAI_AVAILABLE:
+            self._create_crewai_agent()
+        
+        logger.info("路径分析智能体初始化完成")
+    
+    def _create_crewai_agent(self):
+        """创建CrewAI智能体"""
+        try:
+            self.agent = Agent(
+                role="用户路径分析专家",
+                goal="分析用户行为路径，识别流程瓶颈，优化用户体验",
+                backstory="""
+                你是一位经验丰富的用户路径分析专家，专门分析用户在产品中的行为轨迹。
+                你擅长会话重构、路径挖掘和流程优化，能够识别用户体验中的问题点和改进机会。
+                你的分析帮助产品团队优化用户流程，提升用户体验和转化效果。
+                """,
+                tools=[self.session_tool, self.mining_tool, self.flow_tool],
+                llm=get_llm(),
+                verbose=True,
+                allow_delegation=False
+            )
+        except Exception as e:
+            logger.warning(f"CrewAI智能体创建失败: {e}")
+            self.agent = None
+    
+    def reconstruct_user_sessions(self, session_timeout: int = 30) -> Dict[str, Any]:
+        """
+        重构用户会话
+        
+        Args:
+            session_timeout: 会话超时时间（分钟）
+            
+        Returns:
+            会话重构结果
+        """
+        logger.info(f"重构用户会话，超时时间: {session_timeout}分钟")
+        
+        try:
+            result = self.engine.reconstruct_user_sessions(session_timeout)
+            
+            return {
+                'success': True,
+                'session_timeout': session_timeout,
+                'total_sessions': len(result),
+                'sessions': [
+                    {
+                        'session_id': session.session_id,
+                        'user_id': session.user_id,
+                        'start_time': session.start_time.isoformat() if session.start_time else None,
+                        'end_time': session.end_time.isoformat() if session.end_time else None,
+                        'duration_seconds': session.duration_seconds,
+                        'page_views': session.page_views,
+                        'conversions': session.conversions,
+                        'path_sequence': session.path_sequence
+                    }
+                    for session in result[:100]  # 只返回前100个会话
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"会话重构失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def mine_frequent_paths(self, min_support: float = 0.01, max_length: int = 10) -> Dict[str, Any]:
+        """
+        挖掘频繁路径
+        
+        Args:
+            min_support: 最小支持度
+            max_length: 最大路径长度
+            
+        Returns:
+            路径挖掘结果
+        """
+        logger.info(f"挖掘频繁路径，支持度: {min_support}, 最大长度: {max_length}")
+        
+        try:
+            result = self.engine.mine_frequent_paths(
+                min_support=min_support,
+                max_length=max_length
+            )
+            
+            return {
+                'success': True,
+                'min_support': min_support,
+                'max_length': max_length,
+                'frequent_paths_count': len(result),
+                'paths': [
+                    {
+                        'pattern_id': path.pattern_id,
+                        'path_sequence': path.path_sequence,
+                        'frequency': path.frequency,
+                        'user_count': path.user_count,
+                        'avg_duration': path.avg_duration,
+                        'conversion_rate': path.conversion_rate,
+                        'pattern_type': path.pattern_type
+                    }
+                    for path in result
+                ]
+            }
+            
+        except Exception as e:
+            logger.error(f"路径挖掘失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def analyze_user_flow(self, flow_steps: List[str] = None) -> Dict[str, Any]:
+        """
+        分析用户流程
+        
+        Args:
+            flow_steps: 流程步骤列表
+            
+        Returns:
+            流程分析结果
+        """
+        logger.info(f"分析用户流程: {flow_steps}")
+        
+        try:
+            if flow_steps is None:
+                flow_steps = ['landing', 'browse', 'add_to_cart', 'checkout', 'purchase']
+            
+            result = self.engine.analyze_user_flow(flow_steps)
+            
+            return {
+                'success': True,
+                'flow_steps': flow_steps,
+                'flow_analysis': result
+            }
+            
+        except Exception as e:
+            logger.error(f"流程分析失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def comprehensive_path_analysis(self) -> Dict[str, Any]:
+        """
+        执行综合路径分析
+        
+        Returns:
+            综合路径分析结果
+        """
+        logger.info("开始执行综合路径分析")
+        
+        try:
+            results = {
+                'success': True,
+                'analysis_timestamp': pd.Timestamp.now().isoformat(),
+                'analyses': {}
+            }
+            
+            # 1. 会话重构
+            logger.info("执行会话重构...")
+            session_result = self.reconstruct_user_sessions(30)
+            results['analyses']['session_reconstruction'] = session_result
+            
+            # 2. 路径挖掘
+            logger.info("执行路径挖掘...")
+            mining_result = self.mine_frequent_paths(0.01, 10)
+            results['analyses']['path_mining'] = mining_result
+            
+            # 3. 流程分析
+            logger.info("执行流程分析...")
+            flow_result = self.analyze_user_flow()
+            results['analyses']['flow_analysis'] = flow_result
+            
+            # 4. 生成分析摘要
+            results['summary'] = self._generate_analysis_summary(results['analyses'])
+            
+            logger.info("综合路径分析完成")
+            return results
+            
+        except Exception as e:
+            logger.error(f"综合路径分析失败: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'analysis_timestamp': pd.Timestamp.now().isoformat()
+            }
+    
+    def _generate_analysis_summary(self, analyses: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        生成分析摘要
+        
+        Args:
+            analyses: 分析结果字典
+            
+        Returns:
+            分析摘要
+        """
+        summary = {
+            'total_analyses': len(analyses),
+            'successful_analyses': sum(1 for result in analyses.values() if result.get('success', False)),
+            'key_insights': []
+        }
+        
+        try:
+            # 从会话重构中提取洞察
+            session_analysis = analyses.get('session_reconstruction', {})
+            if session_analysis.get('success'):
+                total_sessions = session_analysis.get('total_sessions', 0)
+                summary['key_insights'].append(f"重构了 {total_sessions} 个用户会话")
+            
+            # 从路径挖掘中提取洞察
+            mining_analysis = analyses.get('path_mining', {})
+            if mining_analysis.get('success'):
+                paths_count = mining_analysis.get('frequent_paths_count', 0)
+                summary['key_insights'].append(f"发现了 {paths_count} 个频繁路径模式")
+            
+            # 从流程分析中提取洞察
+            flow_analysis = analyses.get('flow_analysis', {})
+            if flow_analysis.get('success'):
+                flow_steps = flow_analysis.get('flow_steps', [])
+                summary['key_insights'].append(f"分析了 {len(flow_steps)} 步用户流程")
+            
+        except Exception as e:
+            logger.warning(f"生成分析摘要时出错: {e}")
+        
+        return summary
+    
+    def get_agent_status(self) -> Dict[str, Any]:
+        """
+        获取智能体状态
+        
+        Returns:
+            智能体状态信息
+        """
+        return {
+            'agent_type': 'PathAnalysisAgent',
+            'crewai_available': CREWAI_AVAILABLE,
+            'crewai_agent_created': hasattr(self, 'agent') and self.agent is not None,
+            'storage_manager_available': self.storage_manager is not None,
+            'engine_available': self.engine is not None,
+            'tools_count': 3,
+            'tools': ['session_reconstruction', 'path_mining', 'flow_analysis']
+        }
+
+
+# 为了向后兼容，提供一个简单的工厂函数
+def create_path_analysis_agent(storage_manager: DataStorageManager = None) -> PathAnalysisAgent:
+    """
+    创建路径分析智能体实例
+    
+    Args:
+        storage_manager: 数据存储管理器
+        
+    Returns:
+        路径分析智能体实例
+    """
+    return PathAnalysisAgent(storage_manager)
+
 from engines.path_analysis_engine import PathAnalysisEngine, UserSession, PathPattern, PathAnalysisResult
 from tools.data_storage_manager import DataStorageManager
 
@@ -44,7 +495,8 @@ class SessionReconstructionTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.engine = PathAnalysisEngine(storage_manager)
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', PathAnalysisEngine(storage_manager))
         
     def _run(self, user_ids: Optional[List[str]] = None, 
              date_range: Optional[Tuple[str, str]] = None,
@@ -186,7 +638,8 @@ class PathMiningTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.engine = PathAnalysisEngine(storage_manager)
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', PathAnalysisEngine(storage_manager))
         
     def _run(self, sessions: Optional[List[Dict]] = None,
              min_length: int = 2, max_length: int = 10,
@@ -289,7 +742,8 @@ class UserFlowAnalysisTool(BaseTool):
     
     def __init__(self, storage_manager: DataStorageManager = None):
         super().__init__()
-        self.engine = PathAnalysisEngine(storage_manager)
+                # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'engine', PathAnalysisEngine(storage_manager))
         
     def _run(self, analysis_result: Dict[str, Any]) -> Dict[str, Any]:
         """

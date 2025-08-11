@@ -287,7 +287,7 @@ class EventCorrelationAnalysisTool:
             logger.info(f"开始事件关联性分析，事件类型: {event_types}, 最小共现次数: {min_co_occurrence}")
             
             # 执行关联性分析
-            correlation_results = self.engine.analyze_event_correlations(
+            correlation_results = self.engine.analyze_event_correlation(
                 event_types=event_types,
                 min_co_occurrence=min_co_occurrence
             )
@@ -561,7 +561,7 @@ class EventAnalysisAgent:
                 'analysis_type': 'event_trend'
             }
             
-    def analyze_event_correlations(self, event_types: Optional[List[str]] = None, min_co_occurrence: int = 10) -> Dict[str, Any]:
+    def analyze_event_correlation(self, event_types: Optional[List[str]] = None, min_co_occurrence: int = 10) -> Dict[str, Any]:
         """
         分析事件关联性
         
@@ -620,7 +620,7 @@ class EventAnalysisAgent:
             # 执行各项分析
             frequency_result = self.analyze_event_frequency(event_types)
             trend_result = self.analyze_event_trends(event_types)
-            correlation_result = self.analyze_event_correlations(event_types)
+            correlation_result = self.analyze_event_correlation(event_types)
             key_event_result = self.identify_key_events()
             
             # 汇总结果

@@ -29,9 +29,10 @@ class GA4DataProcessingTool(BaseTool):
     
     def __init__(self):
         super().__init__()
-        self.parser = GA4DataParser()
-        self.validator = DataValidator()
-        self.cleaner = DataCleaner()
+        # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'parser', GA4DataParser())
+        object.__setattr__(self, 'validator', DataValidator())
+        object.__setattr__(self, 'cleaner', DataCleaner())
         
     def _run(self, file_path: str) -> Dict[str, Any]:
         """
@@ -103,9 +104,10 @@ class DataValidationTool(BaseTool):
     
     def __init__(self):
         super().__init__()
-        self.validator = DataValidator()
+        # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'validator', DataValidator())
         
-    def _run(self, data: pd.DataFrame) -> Dict[str, Any]:
+    def _run(self, data: Any) -> Dict[str, Any]:
         """
         执行数据验证
         
@@ -158,7 +160,8 @@ class DataStorageTool(BaseTool):
     
     def __init__(self):
         super().__init__()
-        self.storage_manager = DataStorageManager()
+        # Initialize components as instance variables (not Pydantic fields)
+        object.__setattr__(self, 'storage_manager', DataStorageManager())
         
     def _run(self, processed_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -276,7 +279,7 @@ class DataProcessingAgent:
                 'data': None
             }
             
-    def validate_data_quality(self, data: pd.DataFrame) -> Dict[str, Any]:
+    def validate_data_quality(self, data: Any) -> Dict[str, Any]:
         """
         验证数据质量
         

@@ -108,10 +108,31 @@ class SystemConfig:
         """初始化默认配置"""
         if self.api_settings is None:
             self.api_settings = {
+                # 提供商配置
+                'default_llm_provider': getattr(settings, 'default_llm_provider', 'google'),
+                'enabled_providers': getattr(settings, 'enabled_providers', ['google', 'volcano']),
+                'enable_fallback': getattr(settings, 'enable_fallback', True),
+                'fallback_order': getattr(settings, 'fallback_order', ['google', 'volcano']),
+                
+                # Google配置
                 'google_api_key': settings.google_api_key or '',
                 'llm_model': settings.llm_model,
                 'llm_temperature': settings.llm_temperature,
                 'llm_max_tokens': settings.llm_max_tokens,
+                
+                # Volcano配置
+                'ark_api_key': getattr(settings, 'ark_api_key', ''),
+                'ark_base_url': getattr(settings, 'ark_base_url', 'https://ark.cn-beijing.volces.com/api/v3'),
+                'ark_model': getattr(settings, 'ark_model', 'doubao-seed-1-6-250615'),
+                'ark_temperature': getattr(settings, 'llm_temperature', 0.1),
+                
+                # 多模态配置
+                'enable_multimodal': getattr(settings, 'enable_multimodal', True),
+                'max_image_size_mb': getattr(settings, 'max_image_size_mb', 10),
+                'supported_image_formats': getattr(settings, 'supported_image_formats', ['jpg', 'jpeg', 'png', 'gif', 'webp']),
+                'image_analysis_timeout': getattr(settings, 'image_analysis_timeout', 60),
+                
+                # 通用配置
                 'api_timeout': 30,
                 'max_retries': 3
             }
@@ -337,9 +358,23 @@ class ConfigManager:
         try:
             # 验证API配置
             api_config = self.system_config.api_settings
-            if not api_config.get('google_api_key'):
+            default_provider = api_config.get('default_llm_provider', 'google')
+            enabled_providers = api_config.get('enabled_providers', [])
+            
+            # 检查默认提供商的API密钥
+            if default_provider == 'google' and not api_config.get('google_api_key'):
                 validation_result['errors'].append('Google API密钥未配置')
                 validation_result['valid'] = False
+            elif default_provider == 'volcano' and not api_config.get('ark_api_key'):
+                validation_result['errors'].append('Volcano ARK API密钥未配置')
+                validation_result['valid'] = False
+            
+            # 检查启用的提供商配置
+            for provider in enabled_providers:
+                if provider == 'google' and not api_config.get('google_api_key'):
+                    validation_result['warnings'].append('Google API密钥未配置，该提供商将不可用')
+                elif provider == 'volcano' and not api_config.get('ark_api_key'):
+                    validation_result['warnings'].append('Volcano ARK API密钥未配置，该提供商将不可用')
             
             # 验证数据处理配置
             data_config = self.system_config.data_processing
@@ -377,7 +412,12 @@ class ConfigManager:
                     'funnel_steps_configured': len(self.analysis_config.conversion_analysis.get('funnel_steps', []))
                 },
                 'system_config': {
-                    'api_configured': bool(self.system_config.api_settings.get('google_api_key')),
+                    'api_configured': bool(self.system_config.api_settings.get('google_api_key')) or bool(self.system_config.api_settings.get('ark_api_key')),
+                    'default_provider': self.system_config.api_settings.get('default_llm_provider'),
+                    'enabled_providers': self.system_config.api_settings.get('enabled_providers', []),
+                    'google_configured': bool(self.system_config.api_settings.get('google_api_key')),
+                    'volcano_configured': bool(self.system_config.api_settings.get('ark_api_key')),
+                    'multimodal_enabled': self.system_config.api_settings.get('enable_multimodal', False),
                     'max_file_size_mb': self.system_config.data_processing.get('max_file_size_mb'),
                     'default_export_format': self.system_config.export_settings.get('default_format'),
                     'ui_theme': self.system_config.ui_settings.get('theme')

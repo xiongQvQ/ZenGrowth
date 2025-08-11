@@ -603,7 +603,7 @@ class LLMProviderManager:
                 "last_request_time": metrics.last_request_time if metrics else None,
             } if metrics else {},
             "status": {
-                "status": status.status.value if status else "unknown",
+                "status": status.status.value if status and hasattr(status.status, 'value') else (str(status.status) if status else "unknown"),
                 "last_check": status.last_check if status else None,
                 "error_message": status.error_message if status else None,
                 "response_time": status.response_time if status else None,

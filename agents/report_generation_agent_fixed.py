@@ -189,9 +189,9 @@ class ReportCompilerTool(BaseTool):
                 stats_dict = dict(stats) if stats else {}
                 
             return {
-                'total_events': stats_dict.get('events_count', 0),
-                'unique_users': stats_dict.get('users_count', 0),
-                'total_sessions': stats_dict.get('sessions_count', 0),
+                'total_events': stats_dict.get('total_events', stats_dict.get('events_count', 0)),
+                'unique_users': stats_dict.get('total_users', stats_dict.get('users_count', 0)),
+                'total_sessions': stats_dict.get('total_sessions', stats_dict.get('sessions_count', 0)),
                 'date_range': stats_dict.get('date_range', 'Unknown')
             }
         except Exception as e:

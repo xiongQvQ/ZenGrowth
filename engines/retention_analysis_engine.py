@@ -36,7 +36,7 @@ class RetentionAnalysisResult:
     analysis_type: str  # 'daily', 'weekly', 'monthly'
     cohorts: List[CohortData]
     overall_retention_rates: Dict[int, float]
-    retention_matrix: pd.DataFrame
+    retention_matrix: Any  # Changed from pd.DataFrame to Any to avoid Pydantic issues
     summary_stats: Dict[str, Any]
 
 
@@ -1107,6 +1107,126 @@ class RetentionAnalysisEngine:
                 'recommendations': []
             }
             
+    def analyze_cohort_retention(self, analysis_type: str = 'weekly', retention_periods: List[int] = None, date_range: Optional[Tuple[str, str]] = None) -> RetentionAnalysisResult:
+        """
+        分析队列留存（代理方法）
+        
+        Args:
+            analysis_type: 分析类型
+            retention_periods: 留存周期列表
+            
+        Returns:
+            留存分析结果
+        """
+        try:
+            max_periods = max(retention_periods) if retention_periods else 12
+            return self.calculate_retention_rates(
+                analysis_type=analysis_type,
+                max_periods=max_periods
+            )
+        except Exception as e:
+            logger.error(f"队列留存分析失败: {e}")
+            return RetentionAnalysisResult(
+                analysis_type=analysis_type,
+                cohorts=[],
+                overall_retention_rates={},
+                retention_matrix=pd.DataFrame(),
+                summary_stats={}
+            )
+    
+    def calculate_retention_rate(self, start_date: str, end_date: str, retention_days: int = 7) -> float:
+        """
+        计算留存率（代理方法）
+        
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            retention_days: 留存天数
+            
+        Returns:
+            留存率
+        """
+        try:
+            # 使用现有的分析方法
+            result = self.calculate_retention_rates(analysis_type='daily', max_periods=retention_days)
+            if result.overall_retention_rates:
+                return result.overall_retention_rates.get(retention_days - 1, 0.0)
+            return 0.0
+        except Exception as e:
+            logger.error(f"留存率计算失败: {e}")
+            return 0.0
+    
+    def analyze_user_lifecycle(self, analysis_period: int = 30) -> Dict[str, int]:
+        """
+        分析用户生命周期（代理方法）
+        
+        Args:
+            analysis_period: 分析周期
+            
+        Returns:
+            生命周期分析结果
+        """
+        try:
+            # 使用现有的用户档案创建方法
+            profiles = self.create_user_retention_profiles()
+            
+            # 分类用户生命周期阶段
+            lifecycle_stats = {
+                'new_users': 0,
+                'active_users': 0,
+                'at_risk_users': 0,
+                'churned_users': 0
+            }
+            
+            for profile in profiles:
+                if profile.churn_risk_score > 80:
+                    lifecycle_stats['churned_users'] += 1
+                elif profile.churn_risk_score > 60:
+                    lifecycle_stats['at_risk_users'] += 1
+                elif profile.total_active_days > 7:
+                    lifecycle_stats['active_users'] += 1
+                else:
+                    lifecycle_stats['new_users'] += 1
+            
+            return lifecycle_stats
+            
+        except Exception as e:
+            logger.error(f"用户生命周期分析失败: {e}")
+            return {
+                'new_users': 0,
+                'active_users': 0,
+                'at_risk_users': 0,
+                'churned_users': 0
+            }
+
+    def analyze_retention_rate(self, events: Optional[pd.DataFrame] = None, analysis_type: str = 'monthly', date_range: Optional[Tuple[str, str]] = None) -> Dict[str, Any]:
+        """
+        分析留存率（代理方法）
+        
+        Args:
+            events: 事件数据
+            analysis_type: 分析类型
+            
+        Returns:
+            留存率分析结果
+        """
+        try:
+            result = self.calculate_retention_rates(events=events, analysis_type=analysis_type)
+            return {
+                'analysis_type': result.analysis_type,
+                'overall_retention_rates': result.overall_retention_rates,
+                'cohort_count': len(result.cohorts),
+                'summary_stats': result.summary_stats
+            }
+        except Exception as e:
+            logger.error(f"留存率分析失败: {e}")
+            return {
+                'analysis_type': analysis_type,
+                'overall_retention_rates': {},
+                'cohort_count': 0,
+                'summary_stats': {}
+            }
+
     def get_analysis_summary(self) -> Dict[str, Any]:
         """
         获取分析摘要

@@ -81,6 +81,18 @@ class Settings(BaseSettings):
         description="最大图片大小（MB）"
     )
     
+    supported_image_formats: List[str] = Field(
+        default=["jpg", "jpeg", "png", "gif", "webp"],
+        env="SUPPORTED_IMAGE_FORMATS",
+        description="支持的图片格式列表"
+    )
+    
+    image_analysis_timeout: int = Field(
+        default=60,
+        env="IMAGE_ANALYSIS_TIMEOUT",
+        description="图片分析超时时间（秒）"
+    )
+    
     # 模型配置
     llm_model: str = Field(
         default="gemini-2.5-pro",
@@ -172,6 +184,22 @@ class Settings(BaseSettings):
         """验证图片大小限制"""
         if v <= 0 or v > 100:
             raise ValueError("图片大小必须在1-100MB之间")
+        return v
+    
+    @validator('supported_image_formats')
+    def validate_image_formats(cls, v):
+        """验证支持的图片格式"""
+        valid_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff']
+        for fmt in v:
+            if fmt.lower() not in valid_formats:
+                raise ValueError(f"不支持的图片格式: {fmt}")
+        return [fmt.lower() for fmt in v]
+    
+    @validator('image_analysis_timeout')
+    def validate_image_timeout(cls, v):
+        """验证图片分析超时时间"""
+        if v <= 0 or v > 300:
+            raise ValueError("图片分析超时时间必须在1-300秒之间")
         return v
 
     class Config:

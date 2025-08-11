@@ -132,10 +132,10 @@ class ReportCompilerTool(BaseTool):
         try:
             stats = self.storage_manager.get_statistics()
             return {
-                'total_events': stats.get('events_count', 0),
-                'unique_users': stats.get('users_count', 0),
-                'total_sessions': stats.get('sessions_count', 0),
-                'date_range': stats.get('date_range', 'Unknown')
+                'total_events': stats.total_events if stats else 0,
+                'unique_users': stats.total_users if stats else 0,
+                'total_sessions': stats.total_sessions if stats else 0,
+                'date_range': 'Unknown'  # StorageStats doesn't have date_range
             }
         except Exception as e:
             logger.warning(f"获取数据概览失败: {e}")
