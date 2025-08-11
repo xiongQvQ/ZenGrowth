@@ -1,0 +1,38 @@
+GA4示例数据分析报告摘要
+==================================================
+
+生成时间: 2025-08-10T12:47:28.517614
+数据文件: data/events_ga4.ndjson
+执行时间: 0.40秒
+
+执行摘要:
+- 分析状态: failed
+- 执行的分析数量: 5
+- 数据质量状态: success
+
+关键发现:
+1. 留存分析已完成
+2. 计算了用户队列留存率
+3. 识别了关键留存节点
+4. 转化分析已完成
+5. 构建了转化漏斗
+
+验证状态: failed
+发现的问题:
+1. retention_analysis 模块验证失败: Unknown error
+2. conversion_analysis 模块验证失败: Unknown error
+3. user_segmentation 模块验证失败: Unknown error
+4. path_analysis 模块验证失败: Unknown error
+5. event_analysis 模块验证失败: Unknown error
+
+改进建议:
+1. 数据质量良好，可以进行深入分析
+2. 发现验证失败，建议检查分析模块的实现
+3. 需要解决 5 个验证问题
+4. 需要改进 data_processing 模块的实现
+5. 需要改进 retention_analysis 模块的实现
+6. 需要改进 conversion_analysis 模块的实现
+7. 需要改进 user_segmentation 模块的实现
+8. 需要改进 path_analysis 模块的实现
+9. 需要改进 event_analysis 模块的实现
+10. 需要改进 visualizations 模块的实现

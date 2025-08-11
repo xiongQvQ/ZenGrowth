@@ -1,0 +1,199 @@
+{
+  "export_metadata": {
+    "format": "json",
+    "exported_at": "2025-08-10T16:24:17.787613",
+    "version": "1.0"
+  },
+  "report_data": {
+    "workflow_id": "workflow_1754814257",
+    "execution_summary": {
+      "total_execution_time": 0.15349793434143066,
+      "successful_analyses": 2,
+      "failed_analyses": 0,
+      "data_size": 100,
+      "completion_timestamp": "2025-08-10T16:24:17.760494"
+    },
+    "data_processing": {
+      "summary": {
+        "total_events": 100,
+        "unique_users": 20,
+        "date_range": {
+          "start": "2024-12-02",
+          "end": "2024-12-02"
+        },
+        "event_types": {
+          "page_view": 25,
+          "sign_up": 25,
+          "login": 25,
+          "purchase": 25
+        },
+        "platforms": {
+          "WEB": 100
+        },
+        "missing_data": {
+          "user_id": "0",
+          "event_params": "0",
+          "user_properties": "0"
+        },
+        "data_issues": []
+      },
+      "validation": {
+        "total_rows": 100,
+        "validation_passed": true,
+        "errors": [],
+        "warnings": [
+          "发现100条时间戳与日期不一致的记录"
+        ],
+        "statistics": {
+          "unique_users": 20,
+          "unique_events": 4,
+          "date_range": {
+            "start": "2024-12-02 00:00:00",
+            "end": "2024-12-02 00:01:39",
+            "days": 0
+          },
+          "null_counts": {
+            "event_date": 0,
+            "event_timestamp": 0,
+            "event_name": 0,
+            "user_pseudo_id": 0,
+            "user_id": 80,
+            "platform": 0,
+            "device": 0,
+            "geo": 0,
+            "traffic_source": 0,
+            "event_params": 0,
+            "user_properties": 0,
+            "items": 0
+          }
+        }
+      }
+    },
+    "analysis_results": {
+      "retention_analysis": {
+        "status": "completed",
+        "insights": [
+          "留存分析已完成",
+          "计算了用户队列留存率",
+          "识别了关键留存节点"
+        ],
+        "recommendations": [
+          "关注新用户的首周留存率",
+          "优化用户激活流程",
+          "针对流失用户制定召回策略"
+        ],
+        "execution_time": 0.014106988906860352,
+        "data_summary": {
+          "status": {
+            "type": "str",
+            "value": "success"
+          },
+          "analysis_type": {
+            "type": "str",
+            "value": "retention_analysis"
+          },
+          "data_size": {
+            "type": "int",
+            "value": "100"
+          },
+          "unique_users": {
+            "type": "int",
+            "value": "20"
+          },
+          "insights": {
+            "type": "list",
+            "length": 4
+          },
+          "recommendations": {
+            "type": "list",
+            "length": 4
+          },
+          "detailed_results": {
+            "type": "dict",
+            "keys": [
+              "retention_result",
+              "cohort_count"
+            ]
+          },
+          "execution_time": {
+            "type": "str",
+            "value": "2025-08-10T16:24:17.630553"
+          }
+        }
+      },
+      "event_analysis": {
+        "status": "completed",
+        "insights": [
+          "分析了 100 个事件",
+          "发现 4 种不同的事件类型",
+          "涉及 20 个独立用户",
+          "事件分析已完成"
+        ],
+        "recommendations": [
+          "建议关注高频事件的用户行为模式",
+          "优化低频但重要的转化事件",
+          "分析事件时间分布以优化用户体验"
+        ],
+        "execution_time": 0.1393909454345703,
+        "data_summary": {
+          "status": {
+            "type": "str",
+            "value": "error"
+          },
+          "message": {
+            "type": "str",
+            "value": "'EventFrequencyResult' object has no attribute 'get'"
+          },
+          "insights": {
+            "type": "list",
+            "length": 0
+          },
+          "recommendations": {
+            "type": "list",
+            "length": 0
+          }
+        }
+      }
+    },
+    "comprehensive_report": {
+      "status": "success",
+      "summary": {
+        "total_analyses": 2,
+        "successful_analyses": 2,
+        "total_insights": 7,
+        "total_recommendations": 6
+      },
+      "key_insights": [
+        "留存分析已完成",
+        "计算了用户队列留存率",
+        "识别了关键留存节点",
+        "分析了 100 个事件",
+        "发现 4 种不同的事件类型",
+        "涉及 20 个独立用户",
+        "事件分析已完成"
+      ],
+      "key_recommendations": [
+        "关注新用户的首周留存率",
+        "优化用户激活流程",
+        "针对流失用户制定召回策略",
+        "建议关注高频事件的用户行为模式",
+        "优化低频但重要的转化事件",
+        "分析事件时间分布以优化用户体验"
+      ],
+      "analysis_overview": {
+        "retention_analysis": {
+          "status": "completed",
+          "insights_count": 3,
+          "recommendations_count": 3
+        },
+        "event_analysis": {
+          "status": "completed",
+          "insights_count": 4,
+          "recommendations_count": 3
+        }
+      }
+    },
+    "visualizations": {},
+    "system_metrics": {}
+  }
+}

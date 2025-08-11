@@ -1,0 +1,31 @@
+{
+  "api_settings": {
+    "google_api_key": "AIzaSyB4eWAjdMI592BrDWUQgWFC9g_MGjg36W0",
+    "llm_model": "gemini-2.5-pro",
+    "llm_temperature": 0.1,
+    "llm_max_tokens": 4000,
+    "api_timeout": 30,
+    "max_retries": 3
+  },
+  "data_processing": {
+    "max_file_size_mb": 100,
+    "chunk_size": 10000,
+    "memory_limit_gb": 4,
+    "temp_dir": "data/temp",
+    "cleanup_temp_files": true
+  },
+  "ui_settings": {
+    "theme": "light",
+    "language": "zh-CN",
+    "page_size": 20,
+    "auto_refresh": false,
+    "show_debug_info": false
+  },
+  "export_settings": {
+    "default_format": "json",
+    "include_raw_data": false,
+    "compress_exports": true,
+    "export_dir": "reports",
+    "filename_template": "analysis_report_{timestamp}"
+  }
+}

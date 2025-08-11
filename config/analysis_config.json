@@ -1,0 +1,49 @@
+{
+  "event_analysis": {
+    "time_granularity": "day",
+    "top_events_limit": 10,
+    "trend_analysis_days": 30,
+    "correlation_threshold": 0.5
+  },
+  "retention_analysis": {
+    "retention_periods": [
+      1,
+      7,
+      14,
+      30
+    ],
+    "cohort_type": "weekly",
+    "min_cohort_size": 100,
+    "analysis_window_days": 90
+  },
+  "conversion_analysis": {
+    "funnel_steps": [],
+    "conversion_window_hours": 24,
+    "min_funnel_users": 50,
+    "attribution_model": "first_touch"
+  },
+  "user_segmentation": {
+    "clustering_method": "kmeans",
+    "n_clusters": 5,
+    "feature_types": [
+      "behavioral",
+      "demographic",
+      "temporal"
+    ],
+    "min_cluster_size": 100,
+    "max_clusters": 10
+  },
+  "path_analysis": {
+    "min_path_support": 0.01,
+    "max_path_length": 10,
+    "session_timeout_minutes": 30,
+    "include_bounce_sessions": false
+  },
+  "general": {
+    "date_range_days": 30,
+    "timezone": "UTC",
+    "sample_rate": 1.0,
+    "cache_results": true,
+    "parallel_processing": true
+  }
+}

@@ -1,0 +1,734 @@
+{
+  "report_metadata": {
+    "title": "GA4示例数据完整分析报告",
+    "generated_at": "2025-08-10T12:47:28.517614",
+    "data_file": "data/events_ga4.ndjson",
+    "total_execution_time": 0.39614200592041016,
+    "analysis_version": "1.0.0"
+  },
+  "executive_summary": {
+    "analysis_status": "failed",
+    "total_analyses_performed": 5,
+    "data_quality_status": "success",
+    "key_findings": [
+      "留存分析已完成",
+      "计算了用户队列留存率",
+      "识别了关键留存节点",
+      "转化分析已完成",
+      "构建了转化漏斗"
+    ],
+    "critical_issues": [
+      "retention_analysis 模块验证失败: Unknown error",
+      "conversion_analysis 模块验证失败: Unknown error",
+      "user_segmentation 模块验证失败: Unknown error",
+      "path_analysis 模块验证失败: Unknown error",
+      "event_analysis 模块验证失败: Unknown error"
+    ]
+  },
+  "data_overview": {
+    "source_file": "data/events_ga4.ndjson",
+    "processing_results": {},
+    "quality_metrics": {
+      "total_records": 1000,
+      "unique_users": 34,
+      "unique_events": 11,
+      "date_range": {
+        "start": "20250626",
+        "end": "20250809"
+      },
+      "event_distribution": {
+        "view_item": 276,
+        "page_view": 145,
+        "select_item": 135,
+        "view_item_list": 111,
+        "search": 100,
+        "add_to_cart": 69,
+        "begin_checkout": 53,
+        "login": 41,
+        "sign_up": 34,
+        "purchase": 30,
+        "logout": 6
+      }
+    },
+    "validation_summary": {
+      "total_rows": 1000,
+      "validation_passed": true,
+      "errors": [],
+      "warnings": [],
+      "statistics": {
+        "unique_users": 34,
+        "unique_events": 11,
+        "date_range": {
+          "start": "2025-06-26 23:34:53",
+          "end": "2025-08-09 13:19:17",
+          "days": 43
+        },
+        "null_counts": {
+          "event_date": 0,
+          "event_timestamp": 0,
+          "event_name": 0,
+          "user_pseudo_id": 0,
+          "user_id": 0,
+          "platform": 0,
+          "device": 0,
+          "geo": 0,
+          "traffic_source": 0,
+          "event_params": 0,
+          "user_properties": 0,
+          "items": 572
+        }
+      }
+    }
+  },
+  "analysis_results": {
+    "detailed_results": {
+      "retention_analysis": {
+        "status": "completed",
+        "insights": [
+          "留存分析已完成",
+          "计算了用户队列留存率",
+          "识别了关键留存节点"
+        ],
+        "recommendations": [
+          "关注新用户的首周留存率",
+          "优化用户激活流程",
+          "针对流失用户制定召回策略"
+        ],
+        "execution_time": 0.0010690689086914062,
+        "data_summary": {
+          "user_retention": {
+            "type": "str",
+            "value": "retention analysis completed"
+          },
+          "cohort_data": {
+            "type": "str",
+            "value": "cohort analysis completed"
+          },
+          "retention_rates": {
+            "type": "dict",
+            "keys": [
+              "day_1",
+              "day_7",
+              "day_30"
+            ]
+          }
+        }
+      },
+      "conversion_analysis": {
+        "status": "completed",
+        "insights": [
+          "转化分析已完成",
+          "构建了转化漏斗",
+          "识别了转化瓶颈"
+        ],
+        "recommendations": [
+          "优化转化率较低的步骤",
+          "A/B测试关键转化点",
+          "简化转化流程"
+        ],
+        "execution_time": 0.0014088153839111328,
+        "data_summary": {
+          "funnel_steps": {
+            "type": "list",
+            "length": 4
+          },
+          "conversion_rates": {
+            "type": "dict",
+            "keys": [
+              "page_view_to_signup",
+              "signup_to_login",
+              "login_to_purchase"
+            ]
+          },
+          "total_conversions": {
+            "type": "int",
+            "value": "30"
+          }
+        }
+      },
+      "user_segmentation": {
+        "status": "completed",
+        "insights": [
+          "用户分群分析已完成",
+          "识别了不同的用户群体",
+          "生成了用户画像"
+        ],
+        "recommendations": [
+          "针对不同用户群体制定个性化策略",
+          "优化高价值用户群体的体验",
+          "制定用户群体转化策略"
+        ],
+        "execution_time": 0.0018391609191894531,
+        "data_summary": {
+          "user_segments": {
+            "type": "dict",
+            "keys": [
+              "high_value",
+              "medium_value",
+              "low_value"
+            ]
+          },
+          "segmentation_method": {
+            "type": "str",
+            "value": "behavioral clustering"
+          }
+        }
+      },
+      "path_analysis": {
+        "status": "completed",
+        "insights": [
+          "用户路径分析已完成",
+          "识别了常见的用户行为路径",
+          "发现了异常路径模式"
+        ],
+        "recommendations": [
+          "优化主要用户路径的体验",
+          "简化复杂的导航流程",
+          "减少用户流失点"
+        ],
+        "execution_time": 0.002187013626098633,
+        "data_summary": {
+          "common_paths": {
+            "type": "list",
+            "length": 3
+          },
+          "path_analysis": {
+            "type": "str",
+            "value": "user journey analysis completed"
+          },
+          "bounce_rate": {
+            "type": "float",
+            "value": "0.3"
+          }
+        }
+      },
+      "event_analysis": {
+        "status": "completed",
+        "insights": [
+          "分析了 1000 个事件",
+          "发现 11 种不同的事件类型",
+          "涉及 34 个独立用户",
+          "事件分析已完成"
+        ],
+        "recommendations": [
+          "建议关注高频事件的用户行为模式",
+          "优化低频但重要的转化事件",
+          "分析事件时间分布以优化用户体验"
+        ],
+        "execution_time": 0.09673714637756348,
+        "data_summary": {
+          "event_counts": {
+            "type": "dict",
+            "keys": [
+              "view_item",
+              "page_view",
+              "select_item",
+              "view_item_list",
+              "search",
+              "add_to_cart",
+              "begin_checkout",
+              "login",
+              "sign_up",
+              "purchase",
+              "logout"
+            ]
+          },
+          "unique_users": {
+            "type": "int",
+            "value": "34"
+          },
+          "total_events": {
+            "type": "int",
+            "value": "1000"
+          },
+          "date_range": {
+            "type": "dict",
+            "keys": [
+              "start",
+              "end"
+            ]
+          }
+        }
+      }
+    },
+    "comprehensive_report": {
+      "status": "success",
+      "summary": {
+        "total_analyses": 5,
+        "successful_analyses": 5,
+        "total_insights": 16,
+        "total_recommendations": 15
+      },
+      "key_insights": [
+        "留存分析已完成",
+        "计算了用户队列留存率",
+        "识别了关键留存节点",
+        "转化分析已完成",
+        "构建了转化漏斗",
+        "识别了转化瓶颈",
+        "用户分群分析已完成",
+        "识别了不同的用户群体",
+        "生成了用户画像",
+        "用户路径分析已完成"
+      ],
+      "key_recommendations": [
+        "关注新用户的首周留存率",
+        "优化用户激活流程",
+        "针对流失用户制定召回策略",
+        "优化转化率较低的步骤",
+        "A/B测试关键转化点",
+        "简化转化流程",
+        "针对不同用户群体制定个性化策略",
+        "优化高价值用户群体的体验",
+        "制定用户群体转化策略",
+        "优化主要用户路径的体验"
+      ],
+      "analysis_overview": {
+        "retention_analysis": {
+          "status": "completed",
+          "insights_count": 3,
+          "recommendations_count": 3
+        },
+        "conversion_analysis": {
+          "status": "completed",
+          "insights_count": 3,
+          "recommendations_count": 3
+        },
+        "user_segmentation": {
+          "status": "completed",
+          "insights_count": 3,
+          "recommendations_count": 3
+        },
+        "path_analysis": {
+          "status": "completed",
+          "insights_count": 3,
+          "recommendations_count": 3
+        },
+        "event_analysis": {
+          "status": "completed",
+          "insights_count": 4,
+          "recommendations_count": 3
+        }
+      }
+    },
+    "visualizations": {}
+  },
+  "validation_results": {
+    "overall_status": "failed",
+    "validations": {
+      "data_processing": {
+        "passed": false,
+        "checks": {
+          "data_size": {
+            "expected_min": 10,
+            "actual": 0,
+            "passed": false
+          },
+          "events_data_exists": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          },
+          "user_data_exists": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          },
+          "session_data_exists": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          },
+          "data_quality": {
+            "has_summary": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "数据量过少: 0 < 10",
+          "缺少 events_data 数据",
+          "缺少 user_data 数据",
+          "缺少 session_data 数据",
+          "缺少数据质量摘要"
+        ]
+      },
+      "retention_analysis": {
+        "passed": false,
+        "checks": {
+          "has_data": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "分析结果数据为空"
+        ]
+      },
+      "conversion_analysis": {
+        "passed": false,
+        "checks": {
+          "has_data": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "分析结果数据为空"
+        ]
+      },
+      "user_segmentation": {
+        "passed": false,
+        "checks": {
+          "has_data": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "分析结果数据为空"
+        ]
+      },
+      "path_analysis": {
+        "passed": false,
+        "checks": {
+          "has_data": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "分析结果数据为空"
+        ]
+      },
+      "event_analysis": {
+        "passed": false,
+        "checks": {
+          "has_data": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "分析结果数据为空"
+        ]
+      },
+      "consistency": {
+        "passed": true,
+        "checks": {},
+        "issues": []
+      },
+      "visualizations": {
+        "passed": false,
+        "checks": {
+          "has_visualizations": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "没有生成可视化结果"
+        ]
+      }
+    },
+    "issues": [
+      "retention_analysis 模块验证失败: Unknown error",
+      "conversion_analysis 模块验证失败: Unknown error",
+      "user_segmentation 模块验证失败: Unknown error",
+      "path_analysis 模块验证失败: Unknown error",
+      "event_analysis 模块验证失败: Unknown error"
+    ],
+    "recommendations": [
+      "发现验证失败，建议检查分析模块的实现",
+      "需要解决 5 个验证问题",
+      "需要改进 data_processing 模块的实现",
+      "需要改进 retention_analysis 模块的实现",
+      "需要改进 conversion_analysis 模块的实现",
+      "需要改进 user_segmentation 模块的实现",
+      "需要改进 path_analysis 模块的实现",
+      "需要改进 event_analysis 模块的实现",
+      "需要改进 visualizations 模块的实现"
+    ]
+  },
+  "quality_assessment": {
+    "status": "success",
+    "validation_report": {
+      "total_rows": 1000,
+      "validation_passed": true,
+      "errors": [],
+      "warnings": [],
+      "statistics": {
+        "unique_users": 34,
+        "unique_events": 11,
+        "date_range": {
+          "start": "2025-06-26 23:34:53",
+          "end": "2025-08-09 13:19:17",
+          "days": 43
+        },
+        "null_counts": {
+          "event_date": 0,
+          "event_timestamp": 0,
+          "event_name": 0,
+          "user_pseudo_id": 0,
+          "user_id": 0,
+          "platform": 0,
+          "device": 0,
+          "geo": 0,
+          "traffic_source": 0,
+          "event_params": 0,
+          "user_properties": 0,
+          "items": 572
+        }
+      }
+    },
+    "quality_summary": {
+      "total_events": 994,
+      "unique_users": 34,
+      "date_range": {
+        "start": "2025-06-26",
+        "end": "2025-08-09"
+      },
+      "event_types": {
+        "view_item": 276,
+        "page_view": 145,
+        "select_item": 135,
+        "view_item_list": 111,
+        "search": 100,
+        "add_to_cart": 69,
+        "begin_checkout": 53,
+        "login": 41,
+        "sign_up": 34,
+        "purchase": 30
+      },
+      "platforms": {
+        "WEB": 461,
+        "IOS": 289,
+        "ANDROID": 244
+      },
+      "missing_data": {
+        "user_id": "0",
+        "event_params": "0",
+        "user_properties": "0"
+      },
+      "data_issues": []
+    },
+    "statistics": {
+      "total_records": 1000,
+      "unique_users": 34,
+      "unique_events": 11,
+      "date_range": {
+        "start": "20250626",
+        "end": "20250809"
+      },
+      "event_distribution": {
+        "view_item": 276,
+        "page_view": 145,
+        "select_item": 135,
+        "view_item_list": 111,
+        "search": 100,
+        "add_to_cart": 69,
+        "begin_checkout": 53,
+        "login": 41,
+        "sign_up": 34,
+        "purchase": 30,
+        "logout": 6
+      }
+    },
+    "timestamp": "2025-08-10T12:47:28.517457"
+  },
+  "performance_metrics": {
+    "total_execution_time": 0.39614200592041016,
+    "system_metrics": [],
+    "workflow_history": [
+      {
+        "workflow_id": "workflow_1754801248",
+        "file_path": "data/events_ga4.ndjson",
+        "analysis_types": [
+          "event_analysis",
+          "retention_analysis",
+          "conversion_analysis",
+          "user_segmentation",
+          "path_analysis"
+        ],
+        "start_time": "2025-08-10T12:47:28.464331",
+        "status": "completed",
+        "result_summary": {
+          "workflow_id": "workflow_1754801248",
+          "total_execution_time": 0.1032412052154541,
+          "successful_analyses": 5,
+          "failed_analyses": 0,
+          "data_size": 1000
+        }
+      }
+    ]
+  },
+  "recommendations": {
+    "data_quality_improvements": [
+      "数据质量良好，可以进行深入分析"
+    ],
+    "analysis_improvements": [
+      "发现验证失败，建议检查分析模块的实现",
+      "需要解决 5 个验证问题",
+      "需要改进 data_processing 模块的实现",
+      "需要改进 retention_analysis 模块的实现",
+      "需要改进 conversion_analysis 模块的实现",
+      "需要改进 user_segmentation 模块的实现",
+      "需要改进 path_analysis 模块的实现",
+      "需要改进 event_analysis 模块的实现",
+      "需要改进 visualizations 模块的实现"
+    ],
+    "system_optimizations": [
+      "执行效率良好，系统性能表现优秀",
+      "建议定期监控系统性能指标",
+      "考虑实施缓存机制以提高重复分析的效率",
+      "建议设置自动化测试以确保分析结果的一致性"
+    ]
+  },
+  "appendices": {
+    "technical_details": {
+      "system_configuration": {
+        "enable_parallel_processing": true,
+        "max_workers": 4,
+        "memory_limit_gb": 8.0,
+        "timeout_minutes": 30,
+        "enable_caching": true,
+        "cache_ttl_hours": 24,
+        "enable_monitoring": true,
+        "auto_cleanup": false
+      },
+      "component_versions": {
+        "python_version": "3.9.12 (main, Apr  5 2022, 01:52:34) \n[Clang 12.0.0 ]",
+        "pandas_version": "2.3.0+4.g1dfc98e16a",
+        "system_platform": "darwin",
+        "analysis_framework": "standalone_integration_manager_v1.0"
+      }
+    },
+    "raw_validation_data": {
+      "data_processing": {
+        "passed": false,
+        "checks": {
+          "data_size": {
+            "expected_min": 10,
+            "actual": 0,
+            "passed": false
+          },
+          "events_data_exists": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          },
+          "user_data_exists": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          },
+          "session_data_exists": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          },
+          "data_quality": {
+            "has_summary": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "数据量过少: 0 < 10",
+          "缺少 events_data 数据",
+          "缺少 user_data 数据",
+          "缺少 session_data 数据",
+          "缺少数据质量摘要"
+        ]
+      },
+      "retention_analysis": {
+        "passed": false,
+        "checks": {
+          "has_data": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "分析结果数据为空"
+        ]
+      },
+      "conversion_analysis": {
+        "passed": false,
+        "checks": {
+          "has_data": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "分析结果数据为空"
+        ]
+      },
+      "user_segmentation": {
+        "passed": false,
+        "checks": {
+          "has_data": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "分析结果数据为空"
+        ]
+      },
+      "path_analysis": {
+        "passed": false,
+        "checks": {
+          "has_data": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "分析结果数据为空"
+        ]
+      },
+      "event_analysis": {
+        "passed": false,
+        "checks": {
+          "has_data": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "分析结果数据为空"
+        ]
+      },
+      "consistency": {
+        "passed": true,
+        "checks": {},
+        "issues": []
+      },
+      "visualizations": {
+        "passed": false,
+        "checks": {
+          "has_visualizations": {
+            "expected": true,
+            "actual": false,
+            "passed": false
+          }
+        },
+        "issues": [
+          "没有生成可视化结果"
+        ]
+      }
+    },
+    "error_logs": []
+  }
+}
