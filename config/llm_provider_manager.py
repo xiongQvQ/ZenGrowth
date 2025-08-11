@@ -18,6 +18,8 @@ from pydantic import BaseModel
 
 from config.settings import settings, get_provider_api_key, validate_provider_config
 from config.volcano_llm_client import VolcanoLLMClient, VolcanoAPIException, VolcanoErrorType
+from config.volcano_llm_client_monitored import MonitoredVolcanoLLMClient
+from config.monitoring_system import get_performance_monitor
 from config.fallback_handler import FallbackHandler, FallbackEvent, FallbackReason, get_fallback_handler
 
 # 设置日志
@@ -211,7 +213,8 @@ class LLMProviderManager:
                     max_tokens=config["max_tokens"]
                 )
             elif provider_name == "volcano":
-                return VolcanoLLMClient(
+                # 使用带监控的Volcano客户端
+                return MonitoredVolcanoLLMClient(
                     api_key=config["api_key"],
                     base_url=config["base_url"],
                     model=config["model"],
@@ -782,6 +785,83 @@ class LLMProviderManager:
         """重置所有断路器"""
         self._fallback_handler.reset_circuit_breaker_all()
         logger.info("所有断路器已重置")
+    
+    def get_monitoring_stats(self) -> Dict[str, Any]:
+        """
+        获取监控统计信息
+        
+        Returns:
+            监控统计信息字典
+        """
+        performance_monitor = get_performance_monitor()
+        
+        return {
+            "provider_stats": performance_monitor.get_all_provider_stats(),
+            "performance_comparison": performance_monitor.get_performance_comparison(),
+            "system_health": performance_monitor.get_system_health(),
+            "hourly_stats": performance_monitor.get_hourly_stats(),
+            "recent_requests": [r.to_dict() for r in performance_monitor.get_recent_requests(50)]
+        }
+    
+    def get_provider_monitoring_stats(self, provider: str) -> Optional[Dict[str, Any]]:
+        """
+        获取特定提供商的监控统计
+        
+        Args:
+            provider: 提供商名称
+            
+        Returns:
+            提供商监控统计，如果不存在则返回None
+        """
+        if provider not in self._providers:
+            return None
+        
+        # 如果是监控增强的客户端，获取其统计信息
+        provider_instance = self._providers[provider]
+        if hasattr(provider_instance, 'get_monitoring_stats'):
+            return provider_instance.get_monitoring_stats()
+        
+        # 否则从全局监控器获取
+        performance_monitor = get_performance_monitor()
+        provider_stats = performance_monitor.get_provider_stats(provider)
+        
+        if not provider_stats:
+            return None
+        
+        return {
+            "provider": provider,
+            "total_requests": provider_stats.total_requests,
+            "successful_requests": provider_stats.successful_requests,
+            "failed_requests": provider_stats.failed_requests,
+            "success_rate": provider_stats.success_rate,
+            "average_response_time": provider_stats.average_response_time,
+            "median_response_time": provider_stats.median_response_time,
+            "p95_response_time": provider_stats.p95_response_time,
+            "total_tokens": provider_stats.total_tokens,
+            "total_cost": provider_stats.total_cost,
+            "error_count_by_type": provider_stats.error_count_by_type,
+            "request_count_by_type": provider_stats.request_count_by_type
+        }
+    
+    def export_monitoring_report(self) -> str:
+        """
+        导出完整的监控报告
+        
+        Returns:
+            JSON格式的监控报告
+        """
+        performance_monitor = get_performance_monitor()
+        
+        report_data = {
+            "timestamp": time.time(),
+            "system_info": self.get_system_info(),
+            "monitoring_stats": self.get_monitoring_stats(),
+            "fallback_stats": self.get_fallback_stats(),
+            "circuit_breaker_status": self.get_circuit_breaker_status(),
+            "detailed_metrics": performance_monitor.export_metrics()
+        }
+        
+        return json.dumps(report_data, indent=2, ensure_ascii=False)
     
     def export_metrics(self) -> str:
         """

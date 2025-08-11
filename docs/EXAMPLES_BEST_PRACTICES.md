@@ -6,7 +6,240 @@
 
 ## 🎯 使用场景示例
 
-### 1. 电商网站用户行为分析
+### 1. 多模态用户行为分析
+
+#### 业务背景
+某电商平台希望结合用户上传的商品图片和行为数据，分析用户对不同商品类型的偏好，优化商品推荐算法。
+
+#### 多模态数据准备
+```python
+# 多模态分析数据结构
+multimodal_data = {
+    "text_content": "用户浏览了运动鞋商品页面，停留时间3分钟，查看了5张商品图片",
+    "image_content": [
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://example.com/product_images/sneaker_1.jpg",
+                "detail": "high"
+            }
+        },
+        {
+            "type": "image_url", 
+            "image_url": {
+                "url": "https://example.com/user_uploads/style_preference.jpg",
+                "detail": "auto"
+            }
+        }
+    ],
+    "user_behavior": {
+        "page_views": 15,
+        "time_on_page": 180,
+        "scroll_depth": 0.85,
+        "click_events": ["zoom_image", "color_selection", "size_guide"]
+    }
+}
+```
+
+#### 多模态分析实现
+```python
+from config.multimodal_content_handler import MultiModalContentHandler
+from config.llm_provider_manager import LLMProviderManager
+
+class MultiModalAnalyzer:
+    """多模态分析器"""
+    
+    def __init__(self):
+        self.content_handler = MultiModalContentHandler()
+        self.provider_manager = LLMProviderManager()
+    
+    def analyze_user_preferences(self, multimodal_data, provider="volcano"):
+        """分析用户偏好（支持多模态）"""
+        
+        # 1. 准备多模态内容
+        content = self._prepare_multimodal_content(multimodal_data)
+        
+        # 2. 选择支持多模态的提供商
+        llm = self.provider_manager.get_llm(provider=provider)
+        
+        if not llm.supports_multimodal():
+            # 降级到文本分析
+            return self._fallback_to_text_analysis(multimodal_data)
+        
+        # 3. 构建分析提示
+        analysis_prompt = self._build_multimodal_prompt(content)
+        
+        # 4. 执行多模态分析
+        try:
+            result = llm.invoke(analysis_prompt)
+            return self._parse_analysis_result(result)
+        except Exception as e:
+            print(f"多模态分析失败，降级到文本分析: {e}")
+            return self._fallback_to_text_analysis(multimodal_data)
+    
+    def _prepare_multimodal_content(self, data):
+        """准备多模态内容"""
+        content = []
+        
+        # 添加文本内容
+        if "text_content" in data:
+            content.append({
+                "type": "text",
+                "text": data["text_content"]
+            })
+        
+        # 添加图片内容
+        if "image_content" in data:
+            for image in data["image_content"]:
+                # 验证图片URL
+                if self.content_handler.validate_image_url(image["image_url"]["url"]):
+                    content.append(image)
+                else:
+                    print(f"跳过无效图片: {image['image_url']['url']}")
+        
+        # 添加行为数据作为文本
+        if "user_behavior" in data:
+            behavior_text = self._format_behavior_data(data["user_behavior"])
+            content.append({
+                "type": "text", 
+                "text": f"用户行为数据: {behavior_text}"
+            })
+        
+        return content
+    
+    def _build_multimodal_prompt(self, content):
+        """构建多模态分析提示"""
+        return [
+            {
+                "role": "system",
+                "content": """你是一个专业的用户行为分析师。请分析提供的多模态数据（包括文本描述、图片和行为数据），
+                识别用户偏好模式，并提供以下分析：
+                1. 用户兴趣类别识别
+                2. 视觉偏好分析（基于图片内容）
+                3. 行为模式总结
+                4. 个性化推荐建议
+                
+                请以JSON格式返回结构化的分析结果。"""
+            },
+            {
+                "role": "user", 
+                "content": content
+            }
+        ]
+    
+    def _parse_analysis_result(self, result):
+        """解析分析结果"""
+        try:
+            import json
+            # 尝试解析JSON结果
+            if isinstance(result, str):
+                # 提取JSON部分
+                json_start = result.find('{')
+                json_end = result.rfind('}') + 1
+                if json_start != -1 and json_end != -1:
+                    json_str = result[json_start:json_end]
+                    return json.loads(json_str)
+            
+            return {"raw_result": result}
+        except Exception as e:
+            return {
+                "error": f"结果解析失败: {e}",
+                "raw_result": result
+            }
+
+# 使用示例
+analyzer = MultiModalAnalyzer()
+
+# 执行多模态分析
+preferences = analyzer.analyze_user_preferences(
+    multimodal_data, 
+    provider="volcano"  # 使用支持多模态的Volcano提供商
+)
+
+print("用户偏好分析结果:")
+print(json.dumps(preferences, indent=2, ensure_ascii=False))
+```
+
+#### 多模态可视化
+```python
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+def create_multimodal_dashboard(analysis_results, images):
+    """创建多模态分析仪表板"""
+    
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('用户兴趣分布', '视觉偏好热力图', '行为时间线', '推荐匹配度'),
+        specs=[[{"type": "pie"}, {"type": "heatmap"}],
+               [{"type": "scatter"}, {"type": "bar"}]]
+    )
+    
+    # 1. 兴趣分布饼图
+    if "interest_categories" in analysis_results:
+        categories = analysis_results["interest_categories"]
+        fig.add_trace(
+            go.Pie(
+                labels=list(categories.keys()),
+                values=list(categories.values()),
+                name="兴趣分布"
+            ),
+            row=1, col=1
+        )
+    
+    # 2. 视觉偏好热力图
+    if "visual_preferences" in analysis_results:
+        visual_data = analysis_results["visual_preferences"]
+        fig.add_trace(
+            go.Heatmap(
+                z=visual_data.get("preference_matrix", []),
+                x=visual_data.get("attributes", []),
+                y=visual_data.get("categories", []),
+                colorscale="Viridis"
+            ),
+            row=1, col=2
+        )
+    
+    # 3. 行为时间线
+    if "behavior_timeline" in analysis_results:
+        timeline = analysis_results["behavior_timeline"]
+        fig.add_trace(
+            go.Scatter(
+                x=timeline.get("timestamps", []),
+                y=timeline.get("engagement_scores", []),
+                mode='lines+markers',
+                name="参与度变化"
+            ),
+            row=2, col=1
+        )
+    
+    # 4. 推荐匹配度
+    if "recommendations" in analysis_results:
+        recommendations = analysis_results["recommendations"]
+        fig.add_trace(
+            go.Bar(
+                x=[rec["name"] for rec in recommendations],
+                y=[rec["match_score"] for rec in recommendations],
+                name="推荐匹配度"
+            ),
+            row=2, col=2
+        )
+    
+    # 更新布局
+    fig.update_layout(
+        title="多模态用户行为分析仪表板",
+        height=800,
+        showlegend=True
+    )
+    
+    return fig
+
+# 创建仪表板
+dashboard = create_multimodal_dashboard(preferences, multimodal_data["image_content"])
+dashboard.show()
+```
+
+### 2. 电商网站用户行为分析
 
 #### 业务背景
 某电商网站希望分析用户从浏览商品到完成购买的完整行为路径，识别转化瓶颈并优化用户体验。

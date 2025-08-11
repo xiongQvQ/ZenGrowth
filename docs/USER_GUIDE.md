@@ -33,10 +33,27 @@
    
    编辑项目根目录下的 `.env` 文件：
    ```env
+   # Google Gemini API配置
    GOOGLE_API_KEY=your_google_gemini_api_key_here
+   
+   # Volcano ARK API配置 (可选，用于多模态分析)
+   ARK_API_KEY=your_ark_api_key_here
+   ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+   ARK_MODEL=doubao-seed-1-6-250615
+   
+   # LLM提供商配置
+   DEFAULT_LLM_PROVIDER=google
+   ENABLED_PROVIDERS=["google", "volcano"]
+   ENABLE_FALLBACK=true
+   
+   # 多模态配置
+   ENABLE_MULTIMODAL=true
+   MAX_IMAGE_SIZE_MB=10
    ```
    
-   > 💡 **获取API密钥**: 访问 [Google AI Studio](https://makersuite.google.com/app/apikey) 获取免费的Gemini API密钥
+   > 💡 **获取API密钥**: 
+   > - Google Gemini: 访问 [Google AI Studio](https://makersuite.google.com/app/apikey) 获取免费API密钥
+   > - Volcano ARK: 访问 [火山引擎控制台](https://console.volcengine.com/) 开通豆包大模型服务
 
 4. **启动应用**
    ```bash
@@ -245,7 +262,40 @@
 - 路径转化分析
 - 用户体验优化建议
 
-### 4. 综合报告模块
+### 4. 多模态分析模块
+
+**功能特性**:
+- 支持文本和图像混合分析
+- 智能图像内容识别
+- 跨模态关联分析
+- 视觉偏好识别
+
+**使用方法**:
+1. 确保配置了支持多模态的LLM提供商（如Volcano）
+2. 选择"🖼️ 多模态分析"模块
+3. 上传分析内容:
+   - 文本描述
+   - 相关图片（支持JPG、PNG、GIF等格式）
+   - 用户行为数据
+4. 选择分析类型:
+   - 内容偏好分析
+   - 视觉元素识别
+   - 情感倾向分析
+   - 跨模态关联分析
+5. 执行分析并查看结果
+
+**支持的内容类型**:
+- **文本内容**: 用户评论、描述、反馈等
+- **图像内容**: 商品图片、用户上传图片、截图等
+- **行为数据**: 点击、浏览、停留时间等
+
+**分析输出**:
+- 图像内容描述和标签
+- 视觉偏好模式识别
+- 文本-图像关联度分析
+- 个性化推荐建议
+
+### 5. 综合报告模块
 
 **功能特性**:
 - 多维度分析结果汇总
@@ -272,18 +322,26 @@
 
 ### 基础配置
 
-1. **API配置**
-   - Google Gemini API密钥设置
+1. **LLM提供商配置**
+   - 默认提供商选择 (Google Gemini / Volcano Doubao)
+   - API密钥设置和验证
    - 模型参数调整 (温度、最大Token数)
-   - 请求频率限制
+   - 自动故障转移设置
+   - 多模态功能启用/禁用
 
-2. **数据处理配置**
+2. **API配置**
+   - Google Gemini API密钥设置
+   - Volcano ARK API密钥设置
+   - 请求频率限制
+   - 超时时间配置
+
+3. **数据处理配置**
    - 最大文件大小限制
    - 数据处理块大小
    - 内存使用限制
    - 临时文件清理设置
 
-3. **界面配置**
+4. **界面配置**
    - 主题选择 (明亮/暗黑)
    - 语言设置
    - 页面大小设置

@@ -8,11 +8,28 @@
 
 ### 1. 环境变量配置
 
-#### 基础环境变量 (.env文件)
+#### 基础环境变量 (.env 文件)
 
 ```env
 # 必需配置
 GOOGLE_API_KEY=your_google_gemini_api_key_here
+
+# Volcano ARK API配置 (火山引擎豆包大模型)
+ARK_API_KEY=your_ark_api_key_here
+ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+ARK_MODEL=doubao-seed-1-6-250615
+
+# LLM提供商配置
+DEFAULT_LLM_PROVIDER=google
+ENABLED_PROVIDERS=["google", "volcano"]
+ENABLE_FALLBACK=true
+FALLBACK_ORDER=["google", "volcano"]
+
+# 多模态配置
+ENABLE_MULTIMODAL=true
+MAX_IMAGE_SIZE_MB=10
+SUPPORTED_IMAGE_FORMATS=["jpg", "jpeg", "png", "gif", "webp"]
+IMAGE_ANALYSIS_TIMEOUT=60
 
 # LLM模型配置
 LLM_MODEL=gemini-2.5-pro
@@ -164,7 +181,7 @@ HEALTH_CHECK_INTERVAL=60
 
 ### 3. 运行时配置
 
-#### Streamlit配置 (.streamlit/config.toml)
+#### Streamlit 配置 (.streamlit/config.toml)
 
 ```toml
 [global]
@@ -300,17 +317,19 @@ def validate_api_config():
 
 ### 1. 安装和启动问题
 
-#### 问题: Python版本不兼容
+#### 问题: Python 版本不兼容
 
 **症状**:
+
 ```
 ERROR: Python 3.7 is not supported
 ```
 
 **解决方案**:
-1. 检查Python版本: `python --version`
-2. 升级到Python 3.8+
-3. 使用pyenv管理多个Python版本:
+
+1. 检查 Python 版本: `python --version`
+2. 升级到 Python 3.8+
+3. 使用 pyenv 管理多个 Python 版本:
    ```bash
    pyenv install 3.9.0
    pyenv local 3.9.0
@@ -319,25 +338,28 @@ ERROR: Python 3.7 is not supported
 #### 问题: 依赖安装失败
 
 **症状**:
+
 ```
 ERROR: Could not install packages due to an EnvironmentError
 ```
 
 **解决方案**:
-1. 升级pip: `pip install --upgrade pip`
-2. 清理pip缓存: `pip cache purge`
+
+1. 升级 pip: `pip install --upgrade pip`
+2. 清理 pip 缓存: `pip cache purge`
 3. 使用国内镜像源:
    ```bash
    pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/
    ```
 4. 检查系统依赖:
+
    ```bash
    # Ubuntu/Debian
    sudo apt-get install python3-dev build-essential
-   
+
    # CentOS/RHEL
    sudo yum install python3-devel gcc
-   
+
    # macOS
    xcode-select --install
    ```
@@ -345,34 +367,39 @@ ERROR: Could not install packages due to an EnvironmentError
 #### 问题: 虚拟环境创建失败
 
 **症状**:
+
 ```
 ERROR: Unable to create virtual environment
 ```
 
 **解决方案**:
+
 1. 手动创建虚拟环境:
    ```bash
    python -m venv venv
    source venv/bin/activate  # Linux/macOS
    venv\Scripts\activate     # Windows
    ```
-2. 使用conda创建环境:
+2. 使用 conda 创建环境:
    ```bash
    conda create -n analytics python=3.9
    conda activate analytics
    ```
 
-### 2. API配置问题
+### 2. API 配置问题
 
-#### 问题: Google API密钥无效
+#### 问题: Google API 密钥无效
 
 **症状**:
+
 ```
 ERROR: Invalid API key or quota exceeded
 ```
 
 **解决方案**:
-1. 验证API密钥格式:
+
+1. 验证 API 密钥格式:
+
    ```python
    import re
    api_key = "your_api_key"
@@ -380,15 +407,17 @@ ERROR: Invalid API key or quota exceeded
        print("API密钥格式不正确")
    ```
 
-2. 检查API配额:
-   - 访问 [Google Cloud Console](https://console.cloud.google.com/)
-   - 查看API使用情况和配额限制
+2. 检查 API 配额:
 
-3. 测试API连接:
+   - 访问 [Google Cloud Console](https://console.cloud.google.com/)
+   - 查看 API 使用情况和配额限制
+
+3. 测试 API 连接:
+
    ```python
    from config.settings import get_google_api_key
    from langchain_google_genai import ChatGoogleGenerativeAI
-   
+
    try:
        llm = ChatGoogleGenerativeAI(
            model="gemini-2.5-pro",
@@ -400,23 +429,71 @@ ERROR: Invalid API key or quota exceeded
        print(f"API连接失败: {e}")
    ```
 
-#### 问题: API请求超时
+#### 问题: Volcano API 密钥无效
 
 **症状**:
+
+```
+ERROR: Invalid ARK API key or authentication failed
+```
+
+**解决方案**:
+
+1. 验证 ARK API 密钥格式:
+
+   ```python
+   import re
+   ark_api_key = "your_ark_api_key"
+   # ARK API密钥通常以特定前缀开头
+   if not ark_api_key.startswith('ak-'):
+       print("ARK API密钥格式可能不正确")
+   ```
+
+2. 检查 API 配额和权限:
+
+   - 访问 [火山引擎控制台](https://console.volcengine.com/)
+   - 查看豆包大模型服务状态和配额
+
+3. 测试 Volcano API 连接:
+
+   ```python
+   from config.volcano_llm_client import VolcanoLLMClient
+
+   try:
+       client = VolcanoLLMClient(
+           api_key="your_ark_api_key",
+           base_url="https://ark.cn-beijing.volces.com/api/v3",
+           model="doubao-seed-1-6-250615"
+       )
+       response = client.invoke("测试连接")
+       print("Volcano API连接正常")
+   except Exception as e:
+       print(f"Volcano API连接失败: {e}")
+   ```
+
+#### 问题: API 请求超时
+
+**症状**:
+
 ```
 TimeoutError: Request timed out after 30 seconds
 ```
 
 **解决方案**:
+
 1. 增加超时时间:
+
    ```env
    API_TIMEOUT_SECONDS=60
+   IMAGE_ANALYSIS_TIMEOUT=120  # 多模态分析需要更长时间
    ```
 
 2. 检查网络连接:
+
    ```bash
    ping google.com
    curl -I https://generativelanguage.googleapis.com
+   curl -I https://ark.cn-beijing.volces.com  # 检查Volcano连接
    ```
 
 3. 使用代理 (如需要):
@@ -430,15 +507,18 @@ TimeoutError: Request timed out after 30 seconds
 #### 问题: 文件解析失败
 
 **症状**:
+
 ```
 JSONDecodeError: Expecting value: line 1 column 1 (char 0)
 ```
 
 **解决方案**:
+
 1. 验证文件格式:
+
    ```python
    import json
-   
+
    def validate_ndjson_file(file_path):
        try:
            with open(file_path, 'r', encoding='utf-8') as f:
@@ -453,9 +533,10 @@ JSONDecodeError: Expecting value: line 1 column 1 (char 0)
    ```
 
 2. 检查文件编码:
+
    ```python
    import chardet
-   
+
    def detect_encoding(file_path):
        with open(file_path, 'rb') as f:
            result = chardet.detect(f.read())
@@ -480,17 +561,21 @@ JSONDecodeError: Expecting value: line 1 column 1 (char 0)
 #### 问题: 内存不足
 
 **症状**:
+
 ```
 MemoryError: Unable to allocate array
 ```
 
 **解决方案**:
+
 1. 减少数据处理块大小:
+
    ```env
    CHUNK_SIZE=5000
    ```
 
 2. 启用数据分块处理:
+
    ```python
    def process_large_file_in_chunks(file_path, chunk_size=10000):
        for chunk in pd.read_json(file_path, lines=True, chunksize=chunk_size):
@@ -502,32 +587,37 @@ MemoryError: Unable to allocate array
    ```
 
 3. 监控内存使用:
+
    ```python
    import psutil
    import os
-   
+
    def monitor_memory():
        process = psutil.Process(os.getpid())
        memory_info = process.memory_info()
        print(f"内存使用: {memory_info.rss / 1024 / 1024:.2f} MB")
    ```
 
-### 4. CrewAI智能体问题
+### 4. CrewAI 智能体问题
 
 #### 问题: 智能体初始化失败
 
 **症状**:
+
 ```
 ImportError: No module named 'crewai'
 ```
 
 **解决方案**:
-1. 安装CrewAI:
+
+1. 安装 CrewAI:
+
    ```bash
    pip install crewai
    ```
 
 2. 检查版本兼容性:
+
    ```python
    import crewai
    print(f"CrewAI版本: {crewai.__version__}")
@@ -546,15 +636,18 @@ ImportError: No module named 'crewai'
 #### 问题: 智能体执行超时
 
 **症状**:
+
 ```
 TimeoutError: Agent execution timed out
 ```
 
 **解决方案**:
+
 1. 增加执行超时时间:
+
    ```python
    from config.crew_config import create_agent
-   
+
    agent = create_agent('event_analyst')
    agent.max_execution_time = 300  # 5分钟
    ```
@@ -567,17 +660,114 @@ TimeoutError: Agent execution timed out
    # task_description = "进行全面深入的用户行为事件分析，包括但不限于..."
    ```
 
-### 5. 可视化问题
+### 5. 多模态分析问题
+
+#### 问题: 图片分析失败
+
+**症状**:
+
+```
+ERROR: Image analysis failed - unsupported format or corrupted file
+```
+
+**解决方案**:
+
+1. 检查图片格式和大小:
+
+   ```python
+   from PIL import Image
+   import os
+
+   def validate_image(image_path):
+       try:
+           with Image.open(image_path) as img:
+               # 检查格式
+               if img.format.lower() not in ['jpeg', 'jpg', 'png', 'gif', 'webp']:
+                   return False, f"不支持的图片格式: {img.format}"
+
+               # 检查大小
+               file_size_mb = os.path.getsize(image_path) / (1024 * 1024)
+               if file_size_mb > 10:  # 默认限制10MB
+                   return False, f"图片过大: {file_size_mb:.2f}MB"
+
+               return True, "图片验证通过"
+       except Exception as e:
+           return False, f"图片验证失败: {e}"
+   ```
+
+2. 优化图片处理:
+
+   ```python
+   def optimize_image_for_analysis(image_path, max_size=(1024, 1024)):
+       """优化图片用于分析"""
+       with Image.open(image_path) as img:
+           # 转换为RGB格式
+           if img.mode != 'RGB':
+               img = img.convert('RGB')
+
+           # 调整大小
+           img.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+           # 保存优化后的图片
+           optimized_path = image_path.replace('.', '_optimized.')
+           img.save(optimized_path, 'JPEG', quality=85)
+
+           return optimized_path
+   ```
+
+#### 问题: 多模态内容处理超时
+
+**症状**:
+
+```
+TimeoutError: Multi-modal analysis timed out
+```
+
+**解决方案**:
+
+1. 增加超时时间:
+
+   ```env
+   IMAGE_ANALYSIS_TIMEOUT=120
+   MULTIMODAL_BATCH_SIZE=5
+   ```
+
+2. 批量处理优化:
+   ```python
+   def process_multimodal_batch(content_list, batch_size=5):
+       """批量处理多模态内容"""
+       results = []
+       for i in range(0, len(content_list), batch_size):
+           batch = content_list[i:i+batch_size]
+           try:
+               batch_result = process_multimodal_content(batch)
+               results.extend(batch_result)
+           except Exception as e:
+               print(f"批次 {i//batch_size + 1} 处理失败: {e}")
+               # 单个处理失败的项目
+               for item in batch:
+                   try:
+                       result = process_single_content(item)
+                       results.append(result)
+                   except:
+                       results.append({'error': 'processing_failed'})
+       return results
+   ```
+
+### 6. 可视化问题
 
 #### 问题: 图表显示异常
 
 **症状**:
+
 - 图表不显示
 - 数据点重叠
 - 坐标轴标签乱码
 
 **解决方案**:
+
 1. 检查数据格式:
+
    ```python
    def validate_chart_data(data):
        # 检查必需列
@@ -585,16 +775,17 @@ TimeoutError: Agent execution timed out
        missing_columns = [col for col in required_columns if col not in data.columns]
        if missing_columns:
            raise ValueError(f"缺少必需列: {missing_columns}")
-       
+
        # 检查数据类型
        if not pd.api.types.is_numeric_dtype(data['y']):
            raise ValueError("Y轴数据必须为数值类型")
    ```
 
 2. 处理中文字体问题:
+
    ```python
    import plotly.graph_objects as go
-   
+
    fig = go.Figure()
    fig.update_layout(
        font=dict(family="SimHei, Arial Unicode MS, sans-serif")
@@ -615,20 +806,24 @@ TimeoutError: Agent execution timed out
 #### 问题: 分析速度慢
 
 **症状**:
+
 - 分析任务执行时间过长
 - 界面响应缓慢
 
 **解决方案**:
+
 1. 启用并行处理:
+
    ```env
    ENABLE_PARALLEL_PROCESSING=true
    MAX_WORKERS=4
    ```
 
 2. 使用缓存:
+
    ```python
    from functools import lru_cache
-   
+
    @lru_cache(maxsize=128)
    def expensive_analysis(data_hash):
        # 耗时分析逻辑
@@ -644,18 +839,22 @@ TimeoutError: Agent execution timed out
 #### 问题: 磁盘空间不足
 
 **症状**:
+
 ```
 OSError: [Errno 28] No space left on device
 ```
 
 **解决方案**:
+
 1. 清理临时文件:
+
    ```bash
    find ./data/temp -type f -mtime +7 -delete
    find ./logs -name "*.log.*" -mtime +30 -delete
    ```
 
 2. 启用自动清理:
+
    ```env
    CLEANUP_TEMP_FILES=true
    LOG_ROTATION=true
@@ -663,9 +862,10 @@ OSError: [Errno 28] No space left on device
    ```
 
 3. 监控磁盘使用:
+
    ```python
    import shutil
-   
+
    def check_disk_space(path='.'):
        total, used, free = shutil.disk_usage(path)
        free_gb = free / (1024**3)
@@ -688,7 +888,7 @@ def system_health_check():
         'memory_usage': check_memory_usage(),
         'config_validity': check_config_validity()
     }
-    
+
     print("=== 系统健康检查报告 ===")
     for check_name, result in checks.items():
         status = "✅ 正常" if result['status'] else "❌ 异常"
@@ -717,7 +917,7 @@ def analyze_error_logs(log_file='logs/app.log', hours=24):
     """分析错误日志"""
     import re
     from datetime import datetime, timedelta
-    
+
     cutoff_time = datetime.now() - timedelta(hours=hours)
     error_patterns = {
         'api_errors': r'API.*ERROR',
@@ -726,9 +926,9 @@ def analyze_error_logs(log_file='logs/app.log', hours=24):
         'json_errors': r'JSONDecodeError',
         'import_errors': r'ImportError|ModuleNotFoundError'
     }
-    
+
     error_counts = {pattern: 0 for pattern in error_patterns}
-    
+
     try:
         with open(log_file, 'r') as f:
             for line in f:
@@ -738,16 +938,16 @@ def analyze_error_logs(log_file='logs/app.log', hours=24):
                     log_time = datetime.strptime(timestamp_match.group(1), '%Y-%m-%d %H:%M:%S')
                     if log_time < cutoff_time:
                         continue
-                
+
                 # 检查错误模式
                 for pattern_name, pattern in error_patterns.items():
                     if re.search(pattern, line, re.IGNORECASE):
                         error_counts[pattern_name] += 1
-    
+
     except FileNotFoundError:
         print(f"日志文件 {log_file} 不存在")
         return
-    
+
     print(f"=== 最近{hours}小时错误统计 ===")
     for error_type, count in error_counts.items():
         if count > 0:
@@ -766,16 +966,16 @@ def performance_monitor(operation_name):
     """性能监控上下文管理器"""
     start_time = time.time()
     start_memory = psutil.Process().memory_info().rss / 1024 / 1024
-    
+
     try:
         yield
     finally:
         end_time = time.time()
         end_memory = psutil.Process().memory_info().rss / 1024 / 1024
-        
+
         duration = end_time - start_time
         memory_delta = end_memory - start_memory
-        
+
         print(f"=== {operation_name} 性能报告 ===")
         print(f"执行时间: {duration:.2f} 秒")
         print(f"内存变化: {memory_delta:+.2f} MB")
@@ -794,21 +994,21 @@ with performance_monitor("事件分析"):
 - **应用日志**: `logs/app.log`
 - **分析日志**: `logs/analytics.log`
 - **错误日志**: `logs/error.log`
-- **CrewAI日志**: `logs/crewai.log`
+- **CrewAI 日志**: `logs/crewai.log`
 
 ### 配置文件位置
 
 - **环境变量**: `.env`
 - **系统配置**: `config/system_config.json`
 - **分析配置**: `config/analysis_config.json`
-- **Streamlit配置**: `.streamlit/config.toml`
+- **Streamlit 配置**: `.streamlit/config.toml`
 
 ### 联系支持
 
-1. **查看文档**: 首先查看用户指南和API文档
+1. **查看文档**: 首先查看用户指南和 API 文档
 2. **检查日志**: 查看相关日志文件获取详细错误信息
 3. **运行诊断**: 使用系统健康检查工具
-4. **提交Issue**: 在GitHub仓库提交详细的问题报告
+4. **提交 Issue**: 在 GitHub 仓库提交详细的问题报告
 5. **联系开发团队**: 发送邮件至技术支持邮箱
 
 ### 问题报告模板
@@ -818,15 +1018,15 @@ with performance_monitor("事件分析"):
 简要描述遇到的问题
 
 **环境信息**
-- 操作系统: 
-- Python版本: 
-- 平台版本: 
-- 浏览器 (如适用): 
+- 操作系统:
+- Python版本:
+- 平台版本:
+- 浏览器 (如适用):
 
 **重现步骤**
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 **期望行为**
 描述期望的正常行为
@@ -849,4 +1049,4 @@ with performance_monitor("事件分析"):
 
 ---
 
-*本配置和故障排除指南持续更新中，如有新的问题或解决方案，欢迎贡献。*
+_本配置和故障排除指南持续更新中，如有新的问题或解决方案，欢迎贡献。_

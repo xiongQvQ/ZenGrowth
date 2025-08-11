@@ -1,0 +1,24 @@
+{
+  "demo_type": "simple_volcano_integration",
+  "timestamp": "2025-08-11T18:16:49.285613",
+  "results": [
+    {
+      "provider": "google",
+      "response_time": 0.1030588150024414,
+      "success": true,
+      "content_type": "text_analysis"
+    },
+    {
+      "provider": "volcano",
+      "response_time": 0.10007405281066895,
+      "success": true,
+      "content_type": "text_analysis"
+    }
+  ],
+  "summary": {
+    "total_operations": 2,
+    "successful_operations": 2,
+    "success_rate": 1.0,
+    "avg_response_time": 0.10156643390655518
+  }
+}
