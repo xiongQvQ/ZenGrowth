@@ -1,0 +1,361 @@
+# Kubernetes Security Configuration
+# User Behavior Analytics Platform
+# Pod Security Standards and Security Contexts
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: analytics-platform
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: analytics-platform-sa
+  namespace: analytics-platform
+automountServiceAccountToken: false
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: analytics-platform
+  name: analytics-platform-role
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: analytics-platform-rolebinding
+  namespace: analytics-platform
+subjects:
+- kind: ServiceAccount
+  name: analytics-platform-sa
+  namespace: analytics-platform
+roleRef:
+  kind: Role
+  name: analytics-platform-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: analytics-platform-secrets
+  namespace: analytics-platform
+type: Opaque
+data:
+  # Base64 encoded secrets (replace with actual values)
+  google-api-key: ""  # echo -n "your-google-api-key" | base64
+  ark-api-key: ""     # echo -n "your-ark-api-key" | base64
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-platform-config
+  namespace: analytics-platform
+data:
+  LOG_LEVEL: "INFO"
+  STREAMLIT_SERVER_HEADLESS: "true"
+  STREAMLIT_SERVER_PORT: "8501"
+  STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
+  DEFAULT_LLM_PROVIDER: "volcano"
+  ENABLE_FALLBACK: "true"
+  ENABLE_MULTIMODAL: "true"
+  ENABLE_SECURITY_HEADERS: "true"
+  ENABLE_RATE_LIMITING: "true"
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: analytics-platform-netpol
+  namespace: analytics-platform
+spec:
+  podSelector:
+    matchLabels:
+      app: analytics-platform
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8501
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8502
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-platform
+  namespace: analytics-platform
+  labels:
+    app: analytics-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-platform
+  template:
+    metadata:
+      labels:
+        app: analytics-platform
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/analytics-platform: runtime/default
+    spec:
+      serviceAccountName: analytics-platform-sa
+      automountServiceAccountToken: false
+      
+      # Security Context for Pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+        supplementalGroups: [1000]
+      
+      containers:
+      - name: analytics-platform
+        image: analytics-platform:secure
+        imagePullPolicy: Always
+        
+        # Security Context for Container
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - SETGID
+            - SETUID
+            - NET_BIND_SERVICE
+          seccompProfile:
+            type: RuntimeDefault
+        
+        ports:
+        - containerPort: 8501
+          name: streamlit
+          protocol: TCP
+        - containerPort: 8502
+          name: monitoring
+          protocol: TCP
+        
+        env:
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: analytics-platform-secrets
+              key: google-api-key
+              optional: true
+        - name: ARK_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: analytics-platform-secrets
+              key: ark-api-key
+              optional: true
+        
+        envFrom:
+        - configMapRef:
+            name: analytics-platform-config
+        
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
+        - name: reports-volume
+          mountPath: /app/reports
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: var-tmp-volume
+          mountPath: /var/tmp
+        
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+            ephemeral-storage: 10Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+            ephemeral-storage: 5Gi
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8502
+            scheme: HTTP
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 15
+          failureThreshold: 3
+          successThreshold: 1
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8502
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8502
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
+      
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: analytics-platform-data-pvc
+      - name: reports-volume
+        persistentVolumeClaim:
+          claimName: analytics-platform-reports-pvc
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: analytics-platform-logs-pvc
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 100Mi
+      - name: var-tmp-volume
+        emptyDir:
+          sizeLimit: 50Mi
+      
+      # Additional security settings
+      hostNetwork: false
+      hostPID: false
+      hostIPC: false
+      
+      # Node selection and affinity
+      nodeSelector:
+        kubernetes.io/os: linux
+      
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - analytics-platform
+              topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-platform-service
+  namespace: analytics-platform
+  labels:
+    app: analytics-platform
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8501
+    targetPort: 8501
+    protocol: TCP
+    name: streamlit
+  - port: 8502
+    targetPort: 8502
+    protocol: TCP
+    name: monitoring
+  selector:
+    app: analytics-platform
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: analytics-platform-data-pvc
+  namespace: analytics-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: analytics-platform-reports-pvc
+  namespace: analytics-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: fast-ssd
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: analytics-platform-logs-pvc
+  namespace: analytics-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: fast-ssd

@@ -83,6 +83,7 @@ reports/*
 # Configuration files that should be provided via environment
 .env
 .env.*
+!.env.example
 
 # Jupyter notebooks
 *.ipynb

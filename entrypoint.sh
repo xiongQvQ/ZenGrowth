@@ -50,9 +50,9 @@ log() {
 graceful_shutdown() {
     log "INFO" "Received shutdown signal, initiating graceful shutdown..."
     
-    # Stop health check server if running
+    # Stop monitoring service if running
     if [ -n "$HEALTH_CHECK_PID" ]; then
-        log "INFO" "Stopping health check server (PID: $HEALTH_CHECK_PID)..."
+        log "INFO" "Stopping enhanced monitoring service (PID: $HEALTH_CHECK_PID)..."
         kill -TERM "$HEALTH_CHECK_PID" 2>/dev/null || true
         wait "$HEALTH_CHECK_PID" 2>/dev/null || true
     fi
@@ -276,171 +276,44 @@ create_directories() {
     return 0
 }
 
-# Function to start health check server
-start_health_check_server() {
-    log "INFO" "Starting health check server on port $HEALTH_CHECK_PORT..."
-    
-    # Create a simple health check server using Python
-    python3 -c "
-import http.server
-import socketserver
-import json
-import os
-import sys
-from datetime import datetime
+# Function to start enhanced monitoring service
+start_monitoring_service() {
+    log "INFO" "Starting enhanced monitoring service on port $HEALTH_CHECK_PORT..."
 
-class HealthCheckHandler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == '/health':
-            self.send_health_response()
-        elif self.path == '/health/detailed':
-            self.send_detailed_health_response()
-        elif self.path == '/version':
-            self.send_version_response()
-        else:
-            self.send_response(404)
-            self.end_headers()
-    
-    def send_health_response(self):
-        try:
-            # Basic health check
-            health_status = {
-                'status': 'healthy',
-                'timestamp': datetime.now().isoformat(),
-                'service': 'user-behavior-analytics-platform'
-            }
-            
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(health_status).encode())
-        except Exception as e:
-            self.send_error_response(str(e))
-    
-    def send_detailed_health_response(self):
-        try:
-            # Detailed health check
-            health_status = {
-                'status': 'healthy',
-                'timestamp': datetime.now().isoformat(),
-                'service': 'user-behavior-analytics-platform',
-                'checks': {
-                    'directories': self.check_directories(),
-                    'environment': self.check_environment(),
-                    'streamlit': self.check_streamlit()
-                }
-            }
-            
-            # Determine overall status
-            if any(check['status'] != 'healthy' for check in health_status['checks'].values()):
-                health_status['status'] = 'degraded'
-            
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps(health_status, indent=2).encode())
-        except Exception as e:
-            self.send_error_response(str(e))
-    
-    def send_version_response(self):
-        version_info = {
-            'service': 'user-behavior-analytics-platform',
-            'version': '1.0.0',
-            'build_date': datetime.now().isoformat(),
-            'python_version': sys.version,
-            'environment': {
-                'streamlit_port': os.getenv('STREAMLIT_SERVER_PORT', '8501'),
-                'log_level': os.getenv('LOG_LEVEL', 'INFO'),
-                'default_provider': os.getenv('DEFAULT_LLM_PROVIDER', 'google')
-            }
-        }
-        
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps(version_info, indent=2).encode())
-    
-    def check_directories(self):
-        required_dirs = ['/app/data/uploads', '/app/data/processed', '/app/reports', '/app/logs']
-        status = {'status': 'healthy', 'directories': {}}
-        
-        for dir_path in required_dirs:
-            if os.path.exists(dir_path) and os.access(dir_path, os.W_OK):
-                status['directories'][dir_path] = 'writable'
-            elif os.path.exists(dir_path):
-                status['directories'][dir_path] = 'read-only'
-                status['status'] = 'degraded'
-            else:
-                status['directories'][dir_path] = 'missing'
-                status['status'] = 'unhealthy'
-        
-        return status
-    
-    def check_environment(self):
-        has_google_key = bool(os.getenv('GOOGLE_API_KEY'))
-        has_ark_key = bool(os.getenv('ARK_API_KEY'))
-        
-        if has_google_key or has_ark_key:
-            return {
-                'status': 'healthy',
-                'api_keys': {
-                    'google': has_google_key,
-                    'ark': has_ark_key
-                }
-            }
-        else:
-            return {
-                'status': 'unhealthy',
-                'error': 'No API keys configured'
-            }
-    
-    def check_streamlit(self):
-        try:
-            import requests
-            port = os.getenv('STREAMLIT_SERVER_PORT', '8501')
-            response = requests.get(f'http://localhost:{port}/_stcore/health', timeout=5)
-            if response.status_code == 200:
-                return {'status': 'healthy', 'response_time': response.elapsed.total_seconds()}
-            else:
-                return {'status': 'unhealthy', 'error': f'HTTP {response.status_code}'}
-        except Exception as e:
-            return {'status': 'unknown', 'error': str(e)}
-    
-    def send_error_response(self, error_msg):
-        error_response = {
-            'status': 'error',
-            'timestamp': datetime.now().isoformat(),
-            'error': error_msg
-        }
-        
-        self.send_response(500)
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps(error_response).encode())
-    
-    def log_message(self, format, *args):
-        # Suppress default logging
-        pass
+    # Start the enhanced monitoring service using our monitoring_endpoints.py
+    python3 /app/monitoring_endpoints.py --port $HEALTH_CHECK_PORT --host 0.0.0.0 &
 
-try:
-    with socketserver.TCPServer(('', $HEALTH_CHECK_PORT), HealthCheckHandler) as httpd:
-        httpd.serve_forever()
-except Exception as e:
-    print(f'Health check server failed: {e}')
-    sys.exit(1)
-" &
-    
     HEALTH_CHECK_PID=$!
-    log "INFO" "Health check server started (PID: $HEALTH_CHECK_PID)"
-    
+    log "INFO" "Enhanced monitoring service started (PID: $HEALTH_CHECK_PID)"
+
     # Wait a moment to ensure server starts
-    sleep 2
-    
-    # Test health check server
-    if curl -f "http://localhost:$HEALTH_CHECK_PORT/health" >/dev/null 2>&1; then
-        log "INFO" "Health check server is responding"
+    sleep 5
+
+    # Test monitoring service endpoints
+    local endpoints=("/health" "/metrics" "/status")
+    local working_endpoints=0
+
+    for endpoint in "${endpoints[@]}"; do
+        if curl -f "http://localhost:$HEALTH_CHECK_PORT$endpoint" >/dev/null 2>&1; then
+            log "DEBUG" "Monitoring endpoint responding: $endpoint"
+            working_endpoints=$((working_endpoints + 1))
+        else
+            log "WARN" "Monitoring endpoint not responding: $endpoint"
+        fi
+    done
+
+    if [ $working_endpoints -gt 0 ]; then
+        log "INFO" "Enhanced monitoring service is responding ($working_endpoints/${#endpoints[@]} endpoints)"
+        log "INFO" "Available monitoring endpoints:"
+        log "INFO" "  - Health Check: http://localhost:$HEALTH_CHECK_PORT/health"
+        log "INFO" "  - Detailed Health: http://localhost:$HEALTH_CHECK_PORT/health/detailed"
+        log "INFO" "  - Prometheus Metrics: http://localhost:$HEALTH_CHECK_PORT/metrics"
+        log "INFO" "  - JSON Metrics: http://localhost:$HEALTH_CHECK_PORT/metrics/json"
+        log "INFO" "  - System Status: http://localhost:$HEALTH_CHECK_PORT/status"
+        log "INFO" "  - Version Info: http://localhost:$HEALTH_CHECK_PORT/version"
+        log "INFO" "  - API Connectivity: http://localhost:$HEALTH_CHECK_PORT/api/connectivity"
     else
-        log "WARN" "Health check server may not be responding properly"
+        log "WARN" "Enhanced monitoring service may not be responding properly"
     fi
 }
 
@@ -526,10 +399,10 @@ monitor_application() {
             graceful_shutdown
         fi
         
-        # Check if health check server is still running
+        # Check if monitoring service is still running
         if [ -n "$HEALTH_CHECK_PID" ] && ! kill -0 "$HEALTH_CHECK_PID" 2>/dev/null; then
-            log "WARN" "Health check server has died, restarting..."
-            start_health_check_server
+            log "WARN" "Enhanced monitoring service has died, restarting..."
+            start_monitoring_service
         fi
         
         sleep 30
@@ -564,8 +437,8 @@ main() {
     # Step 4: Test API connectivity (basic check)
     test_api_connectivity
     
-    # Step 5: Start health check server
-    start_health_check_server
+    # Step 5: Start enhanced monitoring service
+    start_monitoring_service
     
     # Step 6: Start Streamlit application
     if ! start_streamlit; then
@@ -576,9 +449,13 @@ main() {
     log "INFO" "================================"
     log "INFO" "Application startup completed successfully!"
     log "INFO" "Streamlit UI: http://$STREAMLIT_SERVER_ADDRESS:$STREAMLIT_SERVER_PORT"
-    log "INFO" "Health Check: http://localhost:$HEALTH_CHECK_PORT/health"
-    log "INFO" "Detailed Health: http://localhost:$HEALTH_CHECK_PORT/health/detailed"
-    log "INFO" "Version Info: http://localhost:$HEALTH_CHECK_PORT/version"
+    log "INFO" "Enhanced Monitoring Service: http://localhost:$HEALTH_CHECK_PORT"
+    log "INFO" "  - Health Check: http://localhost:$HEALTH_CHECK_PORT/health"
+    log "INFO" "  - Detailed Health: http://localhost:$HEALTH_CHECK_PORT/health/detailed"
+    log "INFO" "  - Prometheus Metrics: http://localhost:$HEALTH_CHECK_PORT/metrics"
+    log "INFO" "  - System Status: http://localhost:$HEALTH_CHECK_PORT/status"
+    log "INFO" "  - Version Info: http://localhost:$HEALTH_CHECK_PORT/version"
+    log "INFO" "  - API Connectivity: http://localhost:$HEALTH_CHECK_PORT/api/connectivity"
     log "INFO" "================================"
     
     # Step 7: Monitor application

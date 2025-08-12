@@ -1,4 +1,5 @@
-version: '3.8'
+# Test Docker Compose Configuration
+# User Behavior Analytics Platform
 
 services:
   analytics-platform-test:

@@ -1,0 +1,234 @@
+# Security Policy Configuration
+# User Behavior Analytics Platform
+# Defines security policies and configurations for container deployment
+
+apiVersion: v1
+kind: SecurityPolicy
+metadata:
+  name: analytics-platform-security-policy
+  namespace: default
+  labels:
+    app: analytics-platform
+    security: hardened
+
+spec:
+  # Container Security Context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+    seLinuxOptions:
+      level: "s0:c123,c456"
+    
+  # Pod Security Standards
+  podSecurityStandards:
+    enforce: "restricted"
+    audit: "restricted"
+    warn: "restricted"
+  
+  # Capabilities
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+  
+  # Resource Limits
+  resources:
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+      ephemeral-storage: "10Gi"
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+      ephemeral-storage: "5Gi"
+  
+  # Network Policies
+  networkPolicy:
+    policyTypes:
+      - Ingress
+      - Egress
+    
+    ingress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                name: monitoring
+        ports:
+          - protocol: TCP
+            port: 8502  # Monitoring port
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                name: frontend
+        ports:
+          - protocol: TCP
+            port: 8501  # Streamlit port
+    
+    egress:
+      - to: []  # Allow all outbound (for API calls)
+        ports:
+          - protocol: TCP
+            port: 443  # HTTPS
+          - protocol: TCP
+            port: 80   # HTTP
+  
+  # Volume Security
+  volumes:
+    allowedTypes:
+      - configMap
+      - secret
+      - emptyDir
+      - persistentVolumeClaim
+    
+    restrictions:
+      - type: hostPath
+        allowed: false
+        reason: "Host path volumes are not allowed for security"
+      
+      - type: emptyDir
+        allowed: true
+        sizeLimit: "1Gi"
+      
+      - type: persistentVolumeClaim
+        allowed: true
+        accessModes:
+          - ReadWriteOnce
+  
+  # Environment Variable Security
+  environmentVariables:
+    required:
+      - name: LOG_LEVEL
+        allowedValues: ["INFO", "WARN", "ERROR"]
+      
+      - name: STREAMLIT_SERVER_HEADLESS
+        allowedValues: ["true"]
+      
+      - name: ENABLE_SECURITY_HEADERS
+        allowedValues: ["true"]
+    
+    restricted:
+      - pattern: ".*_PASSWORD"
+        source: "secret"
+      
+      - pattern: ".*_API_KEY"
+        source: "secret"
+      
+      - pattern: ".*_TOKEN"
+        source: "secret"
+  
+  # File System Security
+  fileSystem:
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    
+    writableDirectories:
+      - path: "/app/data"
+        mode: "0755"
+        owner: "1000:1000"
+      
+      - path: "/app/reports"
+        mode: "0755"
+        owner: "1000:1000"
+      
+      - path: "/app/logs"
+        mode: "0755"
+        owner: "1000:1000"
+      
+      - path: "/tmp"
+        mode: "1777"
+        owner: "root:root"
+        tmpfs: true
+        size: "100Mi"
+  
+  # Process Security
+  processes:
+    maxProcesses: 100
+    allowedCommands:
+      - "/app/entrypoint.sh"
+      - "python3"
+      - "streamlit"
+    
+    blockedCommands:
+      - "sh"
+      - "bash"
+      - "nc"
+      - "netcat"
+      - "wget"
+      - "curl"  # Except for health checks
+  
+  # Monitoring and Auditing
+  monitoring:
+    enableAuditLogging: true
+    logLevel: "INFO"
+    
+    metrics:
+      enabled: true
+      port: 8502
+      path: "/metrics"
+    
+    healthChecks:
+      enabled: true
+      endpoint: "/health"
+      interval: "30s"
+      timeout: "15s"
+      failureThreshold: 3
+  
+  # Compliance Requirements
+  compliance:
+    standards:
+      - "CIS Docker Benchmark"
+      - "NIST Cybersecurity Framework"
+      - "OWASP Container Security"
+    
+    requirements:
+      - id: "SEC-001"
+        description: "Container must run as non-root user"
+        status: "enforced"
+      
+      - id: "SEC-002"
+        description: "Root filesystem must be read-only"
+        status: "enforced"
+      
+      - id: "SEC-003"
+        description: "Unnecessary capabilities must be dropped"
+        status: "enforced"
+      
+      - id: "SEC-004"
+        description: "Resource limits must be defined"
+        status: "enforced"
+      
+      - id: "SEC-005"
+        description: "Secrets must not be in environment variables"
+        status: "enforced"
+  
+  # Incident Response
+  incidentResponse:
+    enabled: true
+    
+    triggers:
+      - event: "privilege_escalation_attempt"
+        action: "terminate_container"
+      
+      - event: "unauthorized_file_access"
+        action: "alert_security_team"
+      
+      - event: "resource_limit_exceeded"
+        action: "throttle_container"
+      
+      - event: "suspicious_network_activity"
+        action: "isolate_container"
+    
+    contacts:
+      - role: "security_team"
+        email: "security@company.com"
+      
+      - role: "devops_team"
+        email: "devops@company.com"

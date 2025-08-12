@@ -1,0 +1,224 @@
+# Security-Hardened Docker Compose Configuration
+# User Behavior Analytics Platform
+# Production deployment with enhanced security features
+
+services:
+  analytics-platform-secure:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production-secure  # Use security-hardened stage
+    
+    image: analytics-platform:secure
+    container_name: analytics-platform-secure
+    
+    ports:
+      - "8501:8501"
+      - "8502:8502"  # Monitoring service
+    
+    environment:
+      # Streamlit Configuration
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_MAX_UPLOAD_SIZE=100
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      
+      # Application Configuration
+      - LOG_LEVEL=INFO
+      - APP_TITLE=用户行为分析智能体平台
+      
+      # Security Configuration
+      - ENABLE_SECURITY_HEADERS=true
+      - ENABLE_RATE_LIMITING=true
+      - SESSION_TIMEOUT=3600
+      - ENABLE_CORS=false
+      - ENABLE_XSRF_PROTECTION=true
+      
+      # LLM Configuration (override with .env file)
+      - DEFAULT_LLM_PROVIDER=volcano
+      - LLM_MODEL=gemini-2.5-pro
+      - LLM_TEMPERATURE=0.1
+      - LLM_MAX_TOKENS=4000
+      
+      # Volcano ARK Configuration
+      - ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+      - ARK_MODEL=doubao-seed-1-6-250615
+      
+      # Multimodal Configuration
+      - ENABLE_MULTIMODAL=true
+      - MAX_IMAGE_SIZE_MB=10
+      
+      # Fallback Configuration
+      - ENABLE_FALLBACK=true
+      - ENABLED_PROVIDERS=["volcano", "google"]
+      - FALLBACK_ORDER=["volcano", "google"]
+    
+    env_file:
+      - .env  # Load sensitive variables from .env file
+    
+    volumes:
+      # Persistent data storage with security options
+      - type: volume
+        source: analytics-secure-data
+        target: /app/data
+        volume:
+          nocopy: true
+      - type: volume
+        source: analytics-secure-reports
+        target: /app/reports
+        volume:
+          nocopy: true
+      - type: volume
+        source: analytics-secure-logs
+        target: /app/logs
+        volume:
+          nocopy: true
+      
+      # External configuration (read-only)
+      - type: bind
+        source: ./config/production
+        target: /app/config
+        read_only: true
+      
+      # Temporary directories (tmpfs for security)
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 100M
+          mode: 1777
+      - type: tmpfs
+        target: /var/tmp
+        tmpfs:
+          size: 50M
+          mode: 1777
+    
+    # Security context
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+      - seccomp:default
+    
+    # Capability management
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    
+    # Read-only root filesystem (with writable volumes)
+    read_only: true
+    
+    # User and group
+    user: "1000:1000"
+    
+    # Resource limits for security and performance
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+          pids: 100  # Limit number of processes
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    
+    # Memory and swap limits
+    mem_limit: 4g
+    mem_reservation: 1g
+    memswap_limit: 4g
+    
+    # CPU limits
+    cpus: 2.0
+    cpu_shares: 1024
+    
+    # Process limits
+    pids_limit: 100
+    
+    # Ulimits for additional security
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+      memlock:
+        soft: -1
+        hard: -1
+    
+    # Health check with security considerations
+    healthcheck:
+      test: ["CMD", "python3", "/app/healthcheck.py"]
+      interval: 30s
+      timeout: 15s
+      start_period: 90s
+      retries: 3
+      disable: false
+    
+    restart: unless-stopped
+    
+    # Logging configuration with security
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+        labels: "service=analytics-platform,environment=production,security=hardened"
+        tag: "{{.ImageName}}/{{.Name}}/{{.ID}}"
+    
+    # Network configuration
+    networks:
+      - analytics-secure-network
+    
+    # Additional security options
+    tmpfs:
+      - /run:rw,noexec,nosuid,size=100m
+      - /tmp:rw,noexec,nosuid,size=100m
+    
+    # Prevent privilege escalation
+    privileged: false
+    
+    # Disable inter-container communication
+    ipc: none
+    
+    # Limit system calls
+    sysctls:
+      - net.ipv4.ip_unprivileged_port_start=0
+
+# Secure named volumes
+volumes:
+  analytics-secure-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,rw,noexec,nosuid,nodev
+      device: ./data/production
+  
+  analytics-secure-reports:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,rw,noexec,nosuid,nodev
+      device: ./reports/production
+  
+  analytics-secure-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,rw,noexec,nosuid,nodev
+      device: ./logs/production
+
+# Secure network with isolation
+networks:
+  analytics-secure-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "false"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+          gateway: 172.22.0.1
+    internal: false  # Set to true for complete network isolation

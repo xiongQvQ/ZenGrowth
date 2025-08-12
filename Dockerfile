@@ -32,9 +32,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY requirements.txt .
 
 # Install Python dependencies with caching optimization
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install -r requirements.txt && \
-    pip cache purge
+RUN pip install --upgrade pip setuptools wheel -i https://pypi.tuna.tsinghua.edu.cn/simple/ && \
+    pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/
 
 # ================================
 # Stage 3: Application Setup
@@ -124,4 +123,47 @@ HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=3 \
     CMD python3 /app/healthcheck.py || exit 1
 
 # Set entry point
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# ================================
+# Stage 5: Security-Hardened Production Image
+# ================================
+FROM production AS production-secure
+
+# Switch back to root temporarily for security configurations
+USER root
+
+# Remove unnecessary packages and clean up
+RUN apt-get update && apt-get remove -y \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/*
+
+# Set up read-only root filesystem preparation
+# Create necessary writable directories
+RUN mkdir -p /tmp-app /var-app && \
+    chown analytics:analytics /tmp-app /var-app
+
+# Remove shell access for security (optional, can be enabled for debugging)
+# RUN rm -rf /bin/bash /bin/sh /usr/bin/sh
+
+# Set strict file permissions
+RUN find /app -type f -exec chmod 644 {} \; && \
+    find /app -type d -exec chmod 755 {} \; && \
+    chmod +x /app/entrypoint.sh /app/healthcheck.py /app/monitoring_endpoints.py /app/container_config_manager.py
+
+# Switch back to non-root user
+USER analytics
+
+# Security labels and metadata
+LABEL security.scan="enabled" \
+      security.non-root="true" \
+      security.readonly-rootfs="supported" \
+      security.capabilities="minimal" \
+      maintainer="analytics-platform-team" \
+      version="1.0.0-secure"
+
+# Default security-focused entry point
 ENTRYPOINT ["/app/entrypoint.sh"]

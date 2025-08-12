@@ -1,0 +1,122 @@
+# Development Docker Compose Configuration
+# User Behavior Analytics Platform
+# Optimized for development with volume mounts and hot reload capabilities
+
+services:
+  analytics-platform-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: application  # Use application stage for development
+    
+    image: analytics-platform:dev
+    container_name: analytics-platform-dev
+    
+    ports:
+      - "8501:8501"
+      - "8502:8502"  # Health check server
+    
+    environment:
+      # Streamlit Configuration for Development
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_MAX_UPLOAD_SIZE=100
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - STREAMLIT_SERVER_RUN_ON_SAVE=true  # Enable hot reload
+      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=auto
+      
+      # Development Configuration
+      - LOG_LEVEL=DEBUG
+      - APP_TITLE=用户行为分析智能体平台 (Development)
+      - DEBUG_MODE=true
+      
+      # LLM Configuration (override with .env.dev file)
+      - DEFAULT_LLM_PROVIDER=volcano
+      - LLM_MODEL=gemini-2.5-pro
+      - LLM_TEMPERATURE=0.1
+      - LLM_MAX_TOKENS=4000
+      
+      # Volcano ARK Configuration
+      - ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+      - ARK_MODEL=doubao-seed-1-6-250615
+      
+      # Multimodal Configuration
+      - ENABLE_MULTIMODAL=true
+      - MAX_IMAGE_SIZE_MB=10
+      
+      # Fallback Configuration
+      - ENABLE_FALLBACK=true
+      - ENABLED_PROVIDERS=["volcano", "google"]
+      - FALLBACK_ORDER=["volcano", "google"]
+    
+    env_file:
+      - .env.dev  # Load development environment variables
+      - .env      # Fallback to main .env file
+    
+    volumes:
+      # Source code mounting for hot reload
+      - .:/app:cached
+      - /app/venv  # Exclude virtual environment
+      - /app/__pycache__  # Exclude Python cache
+      - /app/.git  # Exclude git directory
+      
+      # Development data directories (local mounts)
+      - ./data/development:/app/data
+      - ./reports/development:/app/reports
+      - ./logs/development:/app/logs
+      - ./config/development:/app/config
+      
+      # Preserve node_modules and other dependencies
+      - dev-node-modules:/app/node_modules
+    
+    healthcheck:
+      test: ["CMD", "python3", "/app/healthcheck.py"]
+      interval: 60s  # Less frequent checks in development
+      timeout: 30s
+      start_period: 120s
+      retries: 2
+    
+    restart: unless-stopped
+    
+    # Development resource limits (more generous)
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '4.0'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    
+    # Development logging (more verbose)
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+        labels: "service=analytics-platform,environment=development"
+    
+    # Network configuration
+    networks:
+      - analytics-dev-network
+    
+    # Development-specific settings
+    stdin_open: true
+    tty: true
+    
+    # Override entrypoint for development debugging if needed
+    # entrypoint: ["tail", "-f", "/dev/null"]  # Uncomment for debugging
+
+# Development volumes
+volumes:
+  dev-node-modules:
+    driver: local
+
+# Development network
+networks:
+  analytics-dev-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

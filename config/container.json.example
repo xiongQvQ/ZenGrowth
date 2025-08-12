@@ -1,0 +1,80 @@
+{
+  "_comment": "Container Configuration File Example - User Behavior Analytics Platform",
+  "_note": "Copy this file to container.json and customize as needed",
+  
+  "streamlit": {
+    "port": 8501,
+    "host": "0.0.0.0",
+    "headless": true,
+    "max_upload_size": 100,
+    "gather_usage_stats": false
+  },
+  
+  "application": {
+    "app_title": "用户行为分析智能体平台",
+    "log_level": "INFO",
+    "debug_mode": false
+  },
+  
+  "directories": {
+    "data_dir": "/app/data",
+    "config_dir": "/app/config",
+    "logs_dir": "/app/logs",
+    "reports_dir": "/app/reports",
+    "uploads_dir": "/app/data/uploads",
+    "processed_dir": "/app/data/processed"
+  },
+  
+  "llm": {
+    "default_llm_provider": "volcano",
+    "enabled_providers": ["volcano", "google"],
+    "enable_fallback": true,
+    "fallback_order": ["volcano", "google"],
+    "llm_model": "gemini-2.5-pro",
+    "llm_temperature": 0.1,
+    "llm_max_tokens": 4000
+  },
+  
+  "volcano_ark": {
+    "ark_base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "ark_model": "doubao-seed-1-6-250615"
+  },
+  
+  "multimodal": {
+    "enable_multimodal": true,
+    "max_image_size_mb": 10,
+    "supported_image_formats": ["jpg", "jpeg", "png", "gif", "webp"],
+    "image_analysis_timeout": 60
+  },
+  
+  "security": {
+    "enable_cors": false,
+    "enable_xsrf_protection": true,
+    "session_timeout": 3600
+  },
+  
+  "performance": {
+    "max_concurrent_requests": 10,
+    "request_timeout": 300,
+    "memory_limit": "4G",
+    "cpu_limit": 2.0,
+    "cache_enabled": true,
+    "cache_ttl": 3600
+  },
+  
+  "development": {
+    "_comment": "Development-specific settings (only for development environment)",
+    "enable_debug_logging": true,
+    "enable_performance_monitoring": true,
+    "enable_api_mocking": false,
+    "mock_api_responses": false
+  },
+  
+  "production": {
+    "_comment": "Production-specific settings (only for production environment)",
+    "enable_security_headers": true,
+    "enable_rate_limiting": true,
+    "metrics_enabled": true,
+    "logging_format": "json"
+  }
+}

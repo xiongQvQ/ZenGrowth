@@ -1,0 +1,125 @@
+# Production Docker Compose Configuration
+# User Behavior Analytics Platform
+# Optimized for production deployment with health checks and proper networking
+
+services:
+  analytics-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    
+    image: analytics-platform:latest
+    container_name: analytics-platform-prod
+    
+    ports:
+      - "8501:8501"
+      - "8502:8502"  # Health check server
+    
+    environment:
+      # Streamlit Configuration
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_MAX_UPLOAD_SIZE=100
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      
+      # Application Configuration
+      - LOG_LEVEL=INFO
+      - APP_TITLE=用户行为分析智能体平台
+      
+      # LLM Configuration (override with .env file)
+      - DEFAULT_LLM_PROVIDER=volcano
+      - LLM_MODEL=gemini-2.5-pro
+      - LLM_TEMPERATURE=0.1
+      - LLM_MAX_TOKENS=4000
+      
+      # Volcano ARK Configuration
+      - ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+      - ARK_MODEL=doubao-seed-1-6-250615
+      
+      # Multimodal Configuration
+      - ENABLE_MULTIMODAL=true
+      - MAX_IMAGE_SIZE_MB=10
+      
+      # Fallback Configuration
+      - ENABLE_FALLBACK=true
+      - ENABLED_PROVIDERS=["volcano", "google"]
+      - FALLBACK_ORDER=["volcano", "google"]
+    
+    env_file:
+      - .env  # Load sensitive variables from .env file
+    
+    volumes:
+      # Persistent data storage
+      - analytics-data:/app/data
+      - analytics-reports:/app/reports
+      - analytics-logs:/app/logs
+      
+      # External configuration (optional)
+      - ./config/production:/app/config:ro
+    
+    healthcheck:
+      test: ["CMD", "python3", "/app/healthcheck.py"]
+      interval: 30s
+      timeout: 15s
+      start_period: 90s
+      retries: 3
+    
+    restart: unless-stopped
+    
+    # Security context
+    user: "1000:1000"
+    
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+        labels: "service=analytics-platform,environment=production"
+    
+    # Network configuration
+    networks:
+      - analytics-network
+
+# Named volumes for persistent data
+volumes:
+  analytics-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/production
+  
+  analytics-reports:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./reports/production
+  
+  analytics-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs/production
+
+# Custom network for better isolation
+networks:
+  analytics-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
