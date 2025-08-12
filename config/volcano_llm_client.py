@@ -1093,7 +1093,7 @@ class VolcanoLLMClient(LLM):
         Returns:
             生成的文本内容
         """
-        if run_manager:
+        if run_manager and hasattr(run_manager, 'on_llm_start'):
             run_manager.on_llm_start(
                 serialized={"name": self._llm_type},
                 prompts=[prompt]
@@ -1109,14 +1109,14 @@ class VolcanoLLMClient(LLM):
             # 提取响应内容
             content = response.choices[0].message.content
             
-            if run_manager:
+            if run_manager and hasattr(run_manager, 'on_llm_end'):
                 run_manager.on_llm_end(LLMResult(generations=[[Generation(text=content)]]))
             
             return content
             
         except VolcanoAPIException as e:
             logger.error(f"Volcano API调用失败: {e}")
-            if run_manager:
+            if run_manager and hasattr(run_manager, 'on_llm_error'):
                 run_manager.on_llm_error(e)
             raise e
         except Exception as e:
@@ -1124,7 +1124,7 @@ class VolcanoLLMClient(LLM):
             error_type = self.error_handler.classify_error(e)
             volcano_exception = self.error_handler.create_exception(e, error_type)
             logger.error(f"Volcano API调用出现未预期错误: {volcano_exception}")
-            if run_manager:
+            if run_manager and hasattr(run_manager, 'on_llm_error'):
                 run_manager.on_llm_error(volcano_exception)
             raise volcano_exception
     

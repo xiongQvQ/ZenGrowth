@@ -282,18 +282,38 @@ class EventAnalysisEngine:
             聚合后的时间序列数据
         """
         try:
-            # 设置时间索引
+            # 设置时间索引 - 处理时间戳转换
             events_with_time = events.copy()
+
+            # 如果没有event_datetime列，从event_timestamp创建
+            if 'event_datetime' not in events_with_time.columns and 'event_timestamp' in events_with_time.columns:
+                # 将微秒时间戳转换为datetime
+                events_with_time['event_datetime'] = pd.to_datetime(events_with_time['event_timestamp'], unit='us')
+            elif 'event_datetime' not in events_with_time.columns:
+                raise ValueError("数据中缺少时间信息：需要event_datetime或event_timestamp列")
+
             events_with_time['date'] = events_with_time['event_datetime'].dt.date
             
-            if granularity == 'daily':
+            # 支持中英文时间粒度
+            granularity_mapping = {
+                '日': 'daily',
+                '周': 'weekly',
+                '月': 'monthly',
+                'day': 'daily',
+                'week': 'weekly',
+                'month': 'monthly'
+            }
+
+            normalized_granularity = granularity_mapping.get(granularity, granularity)
+
+            if normalized_granularity == 'daily':
                 time_col = events_with_time['event_datetime'].dt.date
-            elif granularity == 'weekly':
+            elif normalized_granularity == 'weekly':
                 time_col = events_with_time['event_datetime'].dt.to_period('W').dt.start_time.dt.date
-            elif granularity == 'monthly':
+            elif normalized_granularity == 'monthly':
                 time_col = events_with_time['event_datetime'].dt.to_period('M').dt.start_time.dt.date
             else:
-                raise ValueError(f"不支持的时间粒度: {granularity}")
+                raise ValueError(f"不支持的时间粒度: {granularity} (支持的格式: daily/日, weekly/周, monthly/月)")
                 
             # 聚合数据
             agg_data = events_with_time.groupby(time_col).agg({
@@ -309,7 +329,7 @@ class EventAnalysisEngine:
             date_range = pd.date_range(
                 start=agg_data['date'].min(),
                 end=agg_data['date'].max(),
-                freq='D' if granularity == 'daily' else 'W' if granularity == 'weekly' else 'M'
+                freq='D' if normalized_granularity == 'daily' else 'W' if normalized_granularity == 'weekly' else 'M'
             )
             
             full_data = pd.DataFrame({'date': date_range})
@@ -378,17 +398,28 @@ class EventAnalysisEngine:
             if len(trend_data) < 14:  # 需要足够的数据点
                 return None
                 
-            # 根据粒度检测不同的季节性
-            if granularity == 'daily':
+            # 根据粒度检测不同的季节性 - 支持中英文
+            granularity_mapping = {
+                '日': 'daily',
+                '周': 'weekly',
+                '月': 'monthly',
+                'day': 'daily',
+                'week': 'weekly',
+                'month': 'monthly'
+            }
+
+            normalized_granularity = granularity_mapping.get(granularity, granularity)
+
+            if normalized_granularity == 'daily':
                 # 检测周模式
                 trend_data['weekday'] = trend_data['date'].dt.dayofweek
                 pattern = trend_data.groupby('weekday')['event_count'].mean().to_dict()
-                
+
                 # 转换为星期名称
                 weekday_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
                 seasonal_pattern = {weekday_names[k]: v for k, v in pattern.items()}
-                
-            elif granularity == 'weekly':
+
+            elif normalized_granularity == 'weekly':
                 # 检测月模式
                 trend_data['week_of_month'] = trend_data['date'].dt.day // 7 + 1
                 seasonal_pattern = trend_data.groupby('week_of_month')['event_count'].mean().to_dict()

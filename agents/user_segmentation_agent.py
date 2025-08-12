@@ -326,7 +326,7 @@ class UserSegmentationAgent:
             
             # 2. 聚类分析
             logger.info("执行聚类分析...")
-            clustering_result = self.perform_clustering(5, 'kmeans')
+            clustering_result = self.perform_clustering(method='kmeans', n_clusters=5)
             results['analyses']['clustering_analysis'] = clustering_result
             
             # 3. 生成分群画像

@@ -102,15 +102,33 @@ class UserSegmentationEngine:
                 if self.storage_manager is None:
                     raise ValueError("未提供事件数据且存储管理器未初始化")
                 events = self.storage_manager.get_data('events')
-                
+
             if users is None and self.storage_manager:
                 users = self.storage_manager.get_data('users')
-                
+
             if sessions is None and self.storage_manager:
                 sessions = self.storage_manager.get_data('sessions')
-                
-            if events.empty:
-                logger.warning("事件数据为空，无法提取用户特征")
+
+            # 安全地检查事件数据是否为空
+            if events is None:
+                logger.warning("事件数据为None，无法提取用户特征")
+                return []
+            elif isinstance(events, list):
+                if len(events) == 0:
+                    logger.warning("事件数据列表为空，无法提取用户特征")
+                    return []
+                # 如果是列表，尝试转换为DataFrame
+                try:
+                    events = pd.DataFrame(events)
+                except Exception as e:
+                    logger.error(f"无法将事件数据列表转换为DataFrame: {e}")
+                    return []
+            elif isinstance(events, pd.DataFrame):
+                if events.empty:
+                    logger.warning("事件数据DataFrame为空，无法提取用户特征")
+                    return []
+            else:
+                logger.error(f"事件数据类型不支持: {type(events)}")
                 return []
                 
             # 确保有时间列
@@ -122,11 +140,38 @@ class UserSegmentationEngine:
                     
             user_features_list = []
             
+            # 安全地处理users和sessions数据
+            if users is not None and isinstance(users, list):
+                try:
+                    users = pd.DataFrame(users) if len(users) > 0 else pd.DataFrame()
+                except:
+                    users = pd.DataFrame()
+            elif users is None:
+                users = pd.DataFrame()
+
+            if sessions is not None and isinstance(sessions, list):
+                try:
+                    sessions = pd.DataFrame(sessions) if len(sessions) > 0 else pd.DataFrame()
+                except:
+                    sessions = pd.DataFrame()
+            elif sessions is None:
+                sessions = pd.DataFrame()
+
             # 按用户提取特征
             for user_id in events['user_pseudo_id'].unique():
                 user_events = events[events['user_pseudo_id'] == user_id]
-                user_info = users[users['user_pseudo_id'] == user_id].iloc[0] if not users.empty else None
-                user_sessions = sessions[sessions['user_pseudo_id'] == user_id] if not sessions.empty else pd.DataFrame()
+
+                # 安全地获取用户信息
+                user_info = None
+                if isinstance(users, pd.DataFrame) and not users.empty and 'user_pseudo_id' in users.columns:
+                    user_matches = users[users['user_pseudo_id'] == user_id]
+                    if not user_matches.empty:
+                        user_info = user_matches.iloc[0]
+
+                # 安全地获取用户会话
+                user_sessions = pd.DataFrame()
+                if isinstance(sessions, pd.DataFrame) and not sessions.empty and 'user_pseudo_id' in sessions.columns:
+                    user_sessions = sessions[sessions['user_pseudo_id'] == user_id]
                 
                 # 提取各类特征
                 behavioral_features = self._extract_behavioral_features(user_events)
@@ -1214,6 +1259,56 @@ class UserSegmentationEngine:
             logger.error(f"分析分群特征失败: {e}")
             return {}
             
+    def perform_clustering(self, n_clusters: int = 5, method: str = 'kmeans', **kwargs) -> SegmentationResult:
+        """
+        执行用户聚类分析（代理接口方法）
+
+        Args:
+            n_clusters: 聚类数量
+            method: 聚类方法 ('kmeans', 'dbscan', 'behavioral', 'value_based', 'engagement')
+            **kwargs: 其他聚类参数
+
+        Returns:
+            SegmentationResult: 分群结果对象
+        """
+        try:
+            logger.info(f"执行用户聚类: 方法={method}, 聚类数={n_clusters}")
+
+            # 首先提取用户特征
+            user_features = self.extract_user_features()
+
+            if not user_features:
+                logger.warning("无法提取用户特征，返回空分群结果")
+                return SegmentationResult(
+                    segments=[],
+                    segmentation_method=method,
+                    feature_importance={},
+                    quality_metrics={},
+                    segment_comparison=None
+                )
+
+            # 使用create_user_segments方法执行聚类
+            result = self.create_user_segments(
+                user_features=user_features,
+                method=method,
+                n_clusters=n_clusters,
+                **kwargs
+            )
+
+            logger.info(f"聚类完成，生成{len(result.segments)}个分群")
+            return result
+
+        except Exception as e:
+            logger.error(f"执行聚类分析失败: {e}")
+            # 返回空的分群结果而不是抛出异常
+            return SegmentationResult(
+                segments=[],
+                segmentation_method=method,
+                feature_importance={},
+                quality_metrics={'error': str(e)},
+                segment_comparison=None
+            )
+
     def segment_users(self, events: Optional[pd.DataFrame] = None, features: List[str] = None, n_clusters: int = 5) -> Dict[str, Any]:
         """
         执行用户分群分析（集成管理器接口）
@@ -1226,10 +1321,44 @@ class UserSegmentationEngine:
             用户分群结果字典
         """
         try:
-            if events is None or events.empty:
+            # 安全地检查事件数据
+            if events is None:
                 return {
                     'status': 'error',
-                    'message': '事件数据为空',
+                    'message': '事件数据为None',
+                    'insights': [],
+                    'recommendations': []
+                }
+            elif isinstance(events, list):
+                if len(events) == 0:
+                    return {
+                        'status': 'error',
+                        'message': '事件数据列表为空',
+                        'insights': [],
+                        'recommendations': []
+                    }
+                # 尝试转换为DataFrame
+                try:
+                    events = pd.DataFrame(events)
+                except Exception as e:
+                    return {
+                        'status': 'error',
+                        'message': f'无法转换事件数据: {e}',
+                        'insights': [],
+                        'recommendations': []
+                    }
+            elif isinstance(events, pd.DataFrame):
+                if events.empty:
+                    return {
+                        'status': 'error',
+                        'message': '事件数据DataFrame为空',
+                        'insights': [],
+                        'recommendations': []
+                    }
+            else:
+                return {
+                    'status': 'error',
+                    'message': f'不支持的事件数据类型: {type(events)}',
                     'insights': [],
                     'recommendations': []
                 }
@@ -1339,9 +1468,23 @@ class UserSegmentationEngine:
                 
             events = self.storage_manager.get_data('events')
             users = self.storage_manager.get_data('users')
-            
-            if events.empty:
-                return {"error": "无事件数据"}
+
+            # 安全地检查事件数据
+            if events is None:
+                return {"error": "事件数据为None"}
+            elif isinstance(events, list):
+                if len(events) == 0:
+                    return {"error": "事件数据列表为空"}
+                # 尝试转换为DataFrame
+                try:
+                    events = pd.DataFrame(events)
+                except Exception as e:
+                    return {"error": f"无法转换事件数据: {e}"}
+            elif isinstance(events, pd.DataFrame):
+                if events.empty:
+                    return {"error": "事件数据DataFrame为空"}
+            else:
+                return {"error": f"不支持的事件数据类型: {type(events)}"}
                 
             # 基础统计
             total_events = len(events)
@@ -1377,7 +1520,7 @@ class UserSegmentationEngine:
                 'total_events': total_events,
                 'unique_users': unique_users,
                 'unique_event_types': unique_event_types,
-                'total_user_records': len(users) if not users.empty else 0,
+                'total_user_records': len(users) if isinstance(users, pd.DataFrame) and not users.empty else (len(users) if isinstance(users, list) else 0),
                 'date_range': date_range,
                 'available_methods': available_methods,
                 'feature_types': feature_types,

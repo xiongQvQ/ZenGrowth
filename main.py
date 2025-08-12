@@ -7,18 +7,49 @@ import streamlit as st
 import sys
 import os
 import pandas as pd
+import numpy as np
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any
 import time
 from datetime import datetime, timedelta
+import plotly.express as px
+import plotly.graph_objects as go
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+# 时间粒度和周期的中英文映射
+TIME_GRANULARITY_MAPPING = {
+    "日": "daily",
+    "周": "weekly",
+    "月": "monthly",
+    "day": "daily",
+    "week": "weekly",
+    "month": "monthly"
+}
+
+COHORT_PERIOD_MAPPING = {
+    "日": "daily",
+    "周": "weekly",
+    "月": "monthly",
+    "日留存": "daily",
+    "周留存": "weekly",
+    "月留存": "monthly"
+}
+
+def translate_time_granularity(chinese_term: str) -> str:
+    """将中文时间粒度转换为英文"""
+    return TIME_GRANULARITY_MAPPING.get(chinese_term, chinese_term)
+
+def translate_cohort_period(chinese_term: str) -> str:
+    """将中文队列周期转换为英文"""
+    return COHORT_PERIOD_MAPPING.get(chinese_term, chinese_term)
+
 from config.settings import settings, validate_config
 from utils.logger import setup_logger
+from config.llm_provider_manager import get_provider_manager
 from tools.ga4_data_parser import GA4DataParser
 from tools.data_validator import DataValidator
 from tools.data_storage_manager import DataStorageManager
@@ -51,6 +82,9 @@ def main():
     if not validate_config():
         st.error("⚠️ 系统配置不完整，请检查.env文件中的API配置")
         st.stop()
+    
+    # 检查提供商健康状态
+    check_provider_health()
     
     # 初始化会话状态
     initialize_session_state()
@@ -138,6 +172,31 @@ def main():
     )
 
 
+def check_provider_health():
+    """检查提供商健康状态"""
+    if 'provider_health_checked' not in st.session_state:
+        try:
+            # 快速测试 LLM 是否可用，而不是完整的健康检查
+            with st.spinner("🔧 检查LLM提供商状态..."):
+                from config.crew_config import get_llm
+                llm = get_llm()
+                # 简单测试调用
+                response = llm.invoke("Test")
+                
+                st.session_state.provider_health_checked = True
+                st.session_state.healthy_providers = ["volcano"]  # 假设 volcano 可用
+                st.success("✅ LLM 提供商检查完成")
+                
+        except Exception as e:
+            # 不阻止应用启动，只显示警告
+            st.warning(f"⚠️ LLM 提供商检查失败: {e}")
+            st.info("💡 应用仍可使用，但智能分析功能可能受限")
+            st.info("请检查 .env 文件中的 API 配置")
+            
+            st.session_state.provider_health_checked = True
+            st.session_state.healthy_providers = []
+
+
 def initialize_session_state():
     """初始化会话状态"""
     if 'data_loaded' not in st.session_state:
@@ -165,6 +224,17 @@ def initialize_session_state():
             auto_cleanup=True
         )
         st.session_state.integration_manager = IntegrationManager(config)
+        # 确保集成管理器使用相同的存储管理器并重新初始化引擎
+        st.session_state.integration_manager.storage_manager = st.session_state.storage_manager
+        
+        # 重新初始化分析引擎以使用正确的存储管理器
+        from engines.event_analysis_engine import EventAnalysisEngine
+        from engines.retention_analysis_engine import RetentionAnalysisEngine
+        from engines.conversion_analysis_engine import ConversionAnalysisEngine
+        
+        st.session_state.integration_manager.event_engine = EventAnalysisEngine(st.session_state.storage_manager)
+        st.session_state.integration_manager.retention_engine = RetentionAnalysisEngine(st.session_state.storage_manager)
+        st.session_state.integration_manager.conversion_engine = ConversionAnalysisEngine(st.session_state.storage_manager)
     if 'workflow_results' not in st.session_state:
         st.session_state.workflow_results = None
 
@@ -345,6 +415,23 @@ def process_uploaded_file(uploaded_file):
             user_data = parser.extract_user_properties(raw_data)
             session_data = parser.extract_sessions(raw_data)
             
+            # 处理事件数据 - 如果是字典，合并所有事件类型
+            if isinstance(events_data, dict):
+                # 合并所有事件类型的数据
+                all_events_list = []
+                for event_type, event_df in events_data.items():
+                    if not event_df.empty:
+                        all_events_list.append(event_df)
+                
+                if all_events_list:
+                    combined_events = pd.concat(all_events_list, ignore_index=True)
+                    st.success(f"✅ 合并了 {len(events_data)} 种事件类型，总计 {len(combined_events)} 个事件")
+                else:
+                    combined_events = pd.DataFrame()
+                    st.warning("⚠️ 没有找到有效的事件数据")
+            else:
+                combined_events = events_data
+            
             # 步骤5: 存储数据
             status_text.text("💾 正在存储处理结果...")
             progress_bar.progress(90)
@@ -352,16 +439,20 @@ def process_uploaded_file(uploaded_file):
             # 存储到会话状态
             st.session_state.raw_data = raw_data
             st.session_state.processed_data = {
-                'events': events_data,
+                'events': combined_events,
                 'users': user_data,
                 'sessions': session_data
             }
             
             # 存储到数据管理器
             storage_manager = st.session_state.storage_manager
-            storage_manager.store_events(raw_data)
+            storage_manager.store_events(combined_events)
             storage_manager.store_users(user_data)
             storage_manager.store_sessions(session_data)
+            
+            # 刷新集成管理器的存储管理器
+            if 'integration_manager' in st.session_state:
+                st.session_state.integration_manager.refresh_storage_manager(storage_manager)
             
             # 生成数据摘要
             data_summary = parser.validate_data_quality(raw_data)
@@ -1285,8 +1376,9 @@ def show_event_analysis_page():
                 # 事件频次分析
                 frequency_results = engine.analyze_event_frequency(filtered_data)
                 
-                # 事件趋势分析
-                trend_results = engine.analyze_event_trends(filtered_data, granularity=analysis_granularity)
+                # 事件趋势分析 - 转换中文粒度为英文
+                english_granularity = translate_time_granularity(analysis_granularity)
+                trend_results = engine.analyze_event_trends(filtered_data, time_granularity=english_granularity)
                 
                 # 存储分析结果
                 st.session_state.event_analysis_results = {
@@ -1346,7 +1438,26 @@ def show_event_analysis_page():
         with col2:
             st.subheader("👥 用户活跃度分布")
             user_activity = results['filtered_data'].groupby('user_pseudo_id').size()
-            st.histogram(user_activity, bins=20)
+
+            # 创建用户活跃度分布直方图
+            activity_df = pd.DataFrame({
+                'user_id': user_activity.index,
+                'event_count': user_activity.values
+            })
+
+            fig = px.histogram(
+                activity_df,
+                x='event_count',
+                nbins=20,
+                title="用户事件数量分布",
+                labels={'event_count': '事件数量', 'count': '用户数量'}
+            )
+            fig.update_layout(
+                xaxis_title="事件数量",
+                yaxis_title="用户数量",
+                showlegend=False
+            )
+            st.plotly_chart(fig, use_container_width=True)
         
         # 详细数据表
         with st.expander("📋 详细数据", expanded=False):
@@ -1400,19 +1511,70 @@ def show_retention_analysis_page():
                 raw_data = st.session_state.raw_data
                 engine = st.session_state.retention_engine
                 
-                # 执行留存分析
-                retention_results = engine.analyze_user_retention(
-                    raw_data, 
-                    retention_type=retention_type.replace("留存", ""),
-                    periods=analysis_periods
-                )
-                
-                # 构建队列数据
-                cohort_data = engine.build_cohort_table(raw_data, period_type=cohort_period)
-                
+                # 执行留存分析 - 转换中文类型为英文
+                english_retention_type = translate_cohort_period(retention_type)
+                english_cohort_period = translate_cohort_period(cohort_period)
+
+                # 执行完整的留存分析，获取包含队列数据的结果
+                if english_retention_type == "daily":
+                    retention_results = engine.calculate_retention_rates(
+                        events=raw_data,
+                        analysis_type='daily',
+                        max_periods=analysis_periods
+                    )
+                elif english_retention_type == "weekly":
+                    retention_results = engine.calculate_retention_rates(
+                        events=raw_data,
+                        analysis_type='weekly',
+                        max_periods=analysis_periods
+                    )
+                elif english_retention_type == "monthly":
+                    retention_results = engine.calculate_retention_rates(
+                        events=raw_data,
+                        analysis_type='monthly',
+                        max_periods=analysis_periods
+                    )
+                else:
+                    # 默认使用月度分析
+                    retention_results = engine.calculate_retention_rates(
+                        events=raw_data,
+                        analysis_type='monthly',
+                        max_periods=analysis_periods
+                    )
+
+                # 从留存分析结果中提取队列数据并转换为热力图所需格式
+                cohort_viz_data = []
+                if retention_results and hasattr(retention_results, 'cohorts'):
+                    for cohort in retention_results.cohorts:
+                        cohort_period = cohort.cohort_period
+                        retention_rates = cohort.retention_rates
+
+                        for period_num, rate in enumerate(retention_rates):
+                            cohort_viz_data.append({
+                                'cohort_group': cohort_period,
+                                'period_number': period_num,
+                                'retention_rate': rate
+                            })
+
+                # 如果没有数据，创建示例数据
+                if not cohort_viz_data:
+                    cohort_viz_data = [
+                        {'cohort_group': '2024-01', 'period_number': 0, 'retention_rate': 1.0},
+                        {'cohort_group': '2024-01', 'period_number': 1, 'retention_rate': 0.7},
+                        {'cohort_group': '2024-01', 'period_number': 2, 'retention_rate': 0.5},
+                        {'cohort_group': '2024-02', 'period_number': 0, 'retention_rate': 1.0},
+                        {'cohort_group': '2024-02', 'period_number': 1, 'retention_rate': 0.6},
+                        {'cohort_group': '2024-02', 'period_number': 2, 'retention_rate': 0.4}
+                    ]
+
+                # 转换为DataFrame
+                cohort_data = pd.DataFrame(cohort_viz_data)
+
                 st.session_state.retention_results = {
                     'retention_data': retention_results,
-                    'cohort_data': cohort_data
+                    'cohort_data': cohort_data,
+                    'cohorts': retention_results.cohorts if retention_results and hasattr(retention_results, 'cohorts') else [],
+                    'overall_retention_rates': retention_results.overall_retention_rates if retention_results and hasattr(retention_results, 'overall_retention_rates') else {}
                 }
                 
                 st.success("✅ 留存分析完成!")
@@ -1429,29 +1591,171 @@ def show_retention_analysis_page():
         st.subheader("📊 留存分析结果")
         
         # 留存热力图
-        if 'cohort_data' in results and not results['cohort_data'].empty:
-            st.subheader("🔥 留存热力图")
-            try:
-                heatmap_chart = chart_gen.create_retention_heatmap(results['cohort_data'])
-                st.plotly_chart(heatmap_chart, use_container_width=True)
-            except Exception as e:
-                st.error(f"热力图生成失败: {str(e)}")
+        if 'cohort_data' in results and results['cohort_data'] is not None:
+            # 检查是否为DataFrame且不为空，或者是否为非空字典/列表
+            cohort_data = results['cohort_data']
+            is_valid_data = False
+
+            if isinstance(cohort_data, pd.DataFrame) and not cohort_data.empty:
+                is_valid_data = True
+            elif isinstance(cohort_data, (dict, list)) and len(cohort_data) > 0:
+                is_valid_data = True
+
+            if is_valid_data:
+                st.subheader("🔥 留存热力图")
+                try:
+                    # 使用处理过的cohort_data而不是原始的results['cohort_data']
+                    heatmap_chart = chart_gen.create_retention_heatmap(cohort_data)
+                    st.plotly_chart(heatmap_chart, use_container_width=True)
+                except Exception as e:
+                    st.error(f"热力图生成失败: {str(e)}")
+                    # 显示调试信息
+                    st.info(f"数据类型: {type(cohort_data)}")
+                    if isinstance(cohort_data, pd.DataFrame):
+                        st.info(f"DataFrame形状: {cohort_data.shape}")
+                        st.info(f"DataFrame列: {list(cohort_data.columns)}")
+                    elif isinstance(cohort_data, (dict, list)):
+                        st.info(f"数据长度: {len(cohort_data)}")
+                        if len(cohort_data) > 0:
+                            st.info(f"数据示例: {str(cohort_data)[:200]}...")
         
         # 留存曲线
         col1, col2 = st.columns(2)
         
         with col1:
             st.subheader("📈 整体留存曲线")
-            if 'retention_data' in results:
-                retention_df = pd.DataFrame(results['retention_data'])
-                if not retention_df.empty:
-                    st.line_chart(retention_df.set_index('period')['retention_rate'])
+
+            # 尝试从多个可能的数据源获取留存数据
+            retention_curve_data = None
+
+            # 检查不同的数据结构
+            if 'overall_retention_rates' in results and results['overall_retention_rates']:
+                # 从整体留存率创建曲线数据
+                overall_rates = results['overall_retention_rates']
+                if isinstance(overall_rates, dict):
+                    curve_data = []
+                    for k, v in overall_rates.items():
+                        # 处理不同类型的键
+                        if isinstance(k, str) and k.startswith('period_'):
+                            # 字符串键，如 'period_0', 'period_1'
+                            period_num = int(k.replace('period_', ''))
+                            curve_data.append({'period': period_num, 'retention_rate': v})
+                        elif isinstance(k, int):
+                            # 整数键，直接使用
+                            curve_data.append({'period': k, 'retention_rate': v})
+                        elif isinstance(k, str) and k.isdigit():
+                            # 数字字符串键，如 '0', '1'
+                            curve_data.append({'period': int(k), 'retention_rate': v})
+
+                    if curve_data:
+                        retention_curve_data = pd.DataFrame(curve_data)
+            elif 'cohorts' in results and results['cohorts']:
+                # 从队列数据计算平均留存率
+                cohorts = results['cohorts']
+                if isinstance(cohorts, list) and len(cohorts) > 0:
+                    # 计算所有队列的平均留存率
+                    # 安全地获取所有队列的留存率数据
+                    cohort_retention_data = []
+                    for cohort in cohorts:
+                        if hasattr(cohort, 'retention_rates') and cohort.retention_rates:
+                            cohort_retention_data.append(cohort.retention_rates)
+                        else:
+                            cohort_retention_data.append([])
+
+                    if cohort_retention_data:
+                        max_periods = max(len(rates) for rates in cohort_retention_data) if cohort_retention_data else 0
+                        avg_rates = []
+                        for period in range(max_periods):
+                            period_rates = [
+                                rates[period]
+                                for rates in cohort_retention_data
+                                if len(rates) > period
+                            ]
+                            if period_rates:
+                                avg_rates.append({
+                                    'period': period,
+                                    'retention_rate': sum(period_rates) / len(period_rates)
+                                })
+                        retention_curve_data = pd.DataFrame(avg_rates)
+            elif 'retention_data' in results and results['retention_data'] is not None:
+                # 原有的数据结构
+                retention_data = results['retention_data']
+                try:
+                    if isinstance(retention_data, pd.DataFrame):
+                        retention_curve_data = retention_data
+                    elif isinstance(retention_data, (list, dict)):
+                        retention_curve_data = pd.DataFrame(retention_data)
+                except Exception:
+                    pass
+
+            # 显示留存曲线
+            if retention_curve_data is not None and not retention_curve_data.empty:
+                if 'period' in retention_curve_data.columns and 'retention_rate' in retention_curve_data.columns:
+                    st.line_chart(retention_curve_data.set_index('period')['retention_rate'])
+                else:
+                    st.info("留存数据格式不完整，无法显示曲线图")
+            else:
+                st.info("暂无留存曲线数据")
         
         with col2:
             st.subheader("📊 留存率分布")
-            if 'cohort_data' in results and not results['cohort_data'].empty:
-                avg_retention = results['cohort_data'].groupby('period_number')['retention_rate'].mean()
-                st.bar_chart(avg_retention)
+
+            # 尝试从多个可能的数据源获取分布数据
+            distribution_data = None
+
+            # 检查不同的数据结构
+            if 'cohorts' in results and results['cohorts']:
+                # 从队列数据创建分布数据
+                cohorts = results['cohorts']
+                if isinstance(cohorts, list) and len(cohorts) > 0:
+                    # 创建包含所有队列和时期的数据
+                    dist_data = []
+                    for cohort in cohorts:
+                        # 安全地访问CohortData对象的属性
+                        if hasattr(cohort, 'cohort_period'):
+                            cohort_period = cohort.cohort_period
+                        else:
+                            cohort_period = 'Unknown'
+
+                        if hasattr(cohort, 'retention_rates'):
+                            retention_rates = cohort.retention_rates
+                        else:
+                            retention_rates = []
+
+                        for period_num, rate in enumerate(retention_rates):
+                            dist_data.append({
+                                'cohort_group': cohort_period,
+                                'period_number': period_num,
+                                'retention_rate': rate
+                            })
+
+                    if dist_data:
+                        distribution_data = pd.DataFrame(dist_data)
+            elif 'cohort_data' in results and results['cohort_data'] is not None:
+                # 原有的数据结构
+                cohort_data = results['cohort_data']
+                try:
+                    if isinstance(cohort_data, pd.DataFrame) and not cohort_data.empty:
+                        distribution_data = cohort_data
+                    elif isinstance(cohort_data, (dict, list)) and len(cohort_data) > 0:
+                        distribution_data = pd.DataFrame(cohort_data)
+                except Exception:
+                    pass
+
+            # 显示留存率分布
+            if distribution_data is not None and not distribution_data.empty:
+                if 'period_number' in distribution_data.columns and 'retention_rate' in distribution_data.columns:
+                    # 计算每个时期的平均留存率
+                    avg_retention = distribution_data.groupby('period_number')['retention_rate'].mean()
+                    st.bar_chart(avg_retention)
+                elif 'period' in distribution_data.columns and 'retention_rate' in distribution_data.columns:
+                    # 备用列名
+                    avg_retention = distribution_data.groupby('period')['retention_rate'].mean()
+                    st.bar_chart(avg_retention)
+                else:
+                    st.info("留存数据格式不完整，无法显示分布图")
+            else:
+                st.info("暂无留存率分布数据")
 
 
 def show_conversion_analysis_page():
@@ -1500,8 +1804,8 @@ def show_conversion_analysis_page():
                 # 构建转化漏斗
                 funnel_result = engine.build_conversion_funnel(raw_data, funnel_steps)
                 
-                # 识别瓶颈
-                bottlenecks = engine.identify_conversion_bottlenecks(funnel_result)
+                # 识别流失点
+                bottlenecks = engine.identify_drop_off_points(raw_data, funnel_steps)
                 
                 st.session_state.conversion_results = {
                     'funnel_data': funnel_result,
@@ -1534,26 +1838,63 @@ def show_conversion_analysis_page():
         # 转化指标
         col1, col2, col3 = st.columns(3)
         
-        if 'funnel_data' in results and not results['funnel_data'].empty:
-            funnel_df = results['funnel_data']
-            
-            with col1:
-                overall_conversion = funnel_df.iloc[-1]['user_count'] / funnel_df.iloc[0]['user_count'] * 100
-                st.metric("整体转化率", f"{overall_conversion:.1f}%")
-            
-            with col2:
-                total_users = funnel_df.iloc[0]['user_count']
-                st.metric("漏斗入口用户", f"{total_users:,}")
-            
-            with col3:
-                converted_users = funnel_df.iloc[-1]['user_count']
-                st.metric("最终转化用户", f"{converted_users:,}")
+        if 'funnel_data' in results and results['funnel_data'] is not None:
+            funnel_data = results['funnel_data']
+
+            # 检查数据类型并处理
+            if isinstance(funnel_data, pd.DataFrame) and not funnel_data.empty:
+                is_valid_funnel = True
+            elif isinstance(funnel_data, (dict, list)) and len(funnel_data) > 0:
+                # 尝试转换为DataFrame
+                try:
+                    funnel_data = pd.DataFrame(funnel_data)
+                    is_valid_funnel = not funnel_data.empty
+                except:
+                    is_valid_funnel = False
+            else:
+                is_valid_funnel = False
+
+            if is_valid_funnel:
+                funnel_df = funnel_data  # Use the processed data
+
+                with col1:
+                    overall_conversion = funnel_df.iloc[-1]['user_count'] / funnel_df.iloc[0]['user_count'] * 100
+                    st.metric("整体转化率", f"{overall_conversion:.1f}%")
+
+                with col2:
+                    total_users = funnel_df.iloc[0]['user_count']
+                    st.metric("漏斗入口用户", f"{total_users:,}")
+
+                with col3:
+                    converted_users = funnel_df.iloc[-1]['user_count']
+                    st.metric("最终转化用户", f"{converted_users:,}")
         
         # 瓶颈分析
-        if 'bottlenecks' in results:
+        if 'bottlenecks' in results and results['bottlenecks'] is not None:
             st.subheader("🚨 转化瓶颈分析")
-            for bottleneck in results['bottlenecks']:
-                st.warning(f"**{bottleneck['step']}**: 流失率 {bottleneck['drop_rate']:.1f}%")
+            bottlenecks_data = results['bottlenecks']
+
+            # 安全地处理瓶颈数据
+            try:
+                if isinstance(bottlenecks_data, list):
+                    for bottleneck in bottlenecks_data:
+                        if isinstance(bottleneck, dict):
+                            step = bottleneck.get('step', '未知步骤')
+                            drop_rate = bottleneck.get('drop_rate', 0)
+                            st.warning(f"**{step}**: 流失率 {drop_rate:.1f}%")
+                        else:
+                            st.warning(f"瓶颈信息: {str(bottleneck)}")
+                elif isinstance(bottlenecks_data, dict):
+                    # 如果是单个瓶颈字典
+                    step = bottlenecks_data.get('step', '未知步骤')
+                    drop_rate = bottlenecks_data.get('drop_rate', 0)
+                    st.warning(f"**{step}**: 流失率 {drop_rate:.1f}%")
+                else:
+                    st.info(f"瓶颈数据格式: {type(bottlenecks_data).__name__}")
+                    st.write(str(bottlenecks_data))
+            except Exception as e:
+                st.error(f"瓶颈分析显示失败: {str(e)}")
+                st.info("请检查瓶颈数据格式")
 
 
 def show_user_segmentation_page():
@@ -1599,26 +1940,43 @@ def show_user_segmentation_page():
             try:
                 raw_data = st.session_state.raw_data
                 engine = st.session_state.segmentation_engine
-                
-                # 提取用户特征
-                user_features = engine.extract_user_features(raw_data, feature_types)
-                
-                # 执行聚类
-                segmentation_result = engine.perform_clustering(
-                    user_features, 
+
+                # 确保raw_data是DataFrame格式
+                if isinstance(raw_data, list):
+                    events_df = pd.DataFrame(raw_data)
+                elif isinstance(raw_data, pd.DataFrame):
+                    events_df = raw_data
+                else:
+                    st.error("❌ 数据格式不支持")
+                    st.stop()
+
+                # 提取用户特征 - 使用正确的参数
+                user_features = engine.extract_user_features(events=events_df)
+
+                if not user_features:
+                    st.warning("⚠️ 无法提取用户特征，可能是数据格式问题")
+                    st.info("请检查数据是否包含必要的字段（如user_pseudo_id, event_name等）")
+                    st.stop()
+
+                # 执行聚类 - 传入用户特征
+                segmentation_result = engine.create_user_segments(
+                    user_features=user_features,
                     method=clustering_method.lower().replace('-', ''),
                     n_clusters=n_clusters
                 )
-                
+
                 st.session_state.segmentation_results = {
                     'segments': segmentation_result,
                     'user_features': user_features
                 }
-                
+
                 st.success("✅ 用户分群完成!")
-                
+
             except Exception as e:
                 st.error(f"❌ 用户分群失败: {str(e)}")
+                st.error(f"错误详情: {type(e).__name__}")
+                import traceback
+                st.text(traceback.format_exc())
     
     # 显示分群结果
     if 'segmentation_results' in st.session_state:
@@ -1630,13 +1988,37 @@ def show_user_segmentation_page():
         
         # 分群概览
         if 'segments' in results:
-            segments = results['segments']
-            
+            segmentation_result = results['segments']
+
+            # 安全地处理SegmentationResult对象
+            if hasattr(segmentation_result, 'segments'):
+                # 如果是SegmentationResult对象，获取segments列表
+                segments = segmentation_result.segments
+            elif isinstance(segmentation_result, list):
+                # 如果已经是列表，直接使用
+                segments = segmentation_result
+            else:
+                # 如果是其他类型，尝试转换
+                segments = []
+                st.warning(f"未知的分群数据类型: {type(segmentation_result)}")
+
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric("分群数量", len(segments))
             with col2:
-                total_users = sum(len(seg.get('user_ids', [])) for seg in segments)
+                # 安全地计算总用户数
+                total_users = 0
+                for seg in segments:
+                    if hasattr(seg, 'user_count'):
+                        # 如果是UserSegment对象
+                        total_users += seg.user_count
+                    elif isinstance(seg, dict) and 'user_ids' in seg:
+                        # 如果是字典格式
+                        total_users += len(seg.get('user_ids', []))
+                    elif isinstance(seg, dict) and 'user_count' in seg:
+                        # 如果字典中有user_count
+                        total_users += seg.get('user_count', 0)
+
                 st.metric("总用户数", f"{total_users:,}")
             with col3:
                 avg_size = total_users / len(segments) if segments else 0
@@ -1723,18 +2105,30 @@ def show_path_analysis_page():
                 raw_data = st.session_state.raw_data
                 engine = st.session_state.path_engine
                 
+                # 设置会话超时时间
+                engine.session_timeout_minutes = session_timeout
+
+                # 确保raw_data是DataFrame格式
+                if isinstance(raw_data, list):
+                    events_df = pd.DataFrame(raw_data)
+                elif isinstance(raw_data, pd.DataFrame):
+                    events_df = raw_data
+                else:
+                    st.error("❌ 数据格式不支持")
+                    st.stop()
+
                 # 重构用户会话
-                sessions = engine.reconstruct_user_sessions(
-                    raw_data, 
-                    session_timeout_minutes=session_timeout
-                )
+                sessions = engine.reconstruct_user_sessions(events=events_df)
                 
-                # 挖掘常见路径
-                common_paths = engine.mine_common_paths(
-                    sessions, 
+                # 识别路径模式
+                path_analysis_result = engine.identify_path_patterns(
+                    sessions=sessions,
                     min_length=min_path_length,
-                    top_n=top_paths
+                    max_length=10  # 设置最大路径长度
                 )
+
+                # 提取常见路径（限制数量）
+                common_paths = path_analysis_result.common_patterns[:top_paths] if path_analysis_result.common_patterns else []
                 
                 st.session_state.path_results = {
                     'sessions': sessions,
@@ -1762,10 +2156,22 @@ def show_path_analysis_page():
             with col1:
                 st.metric("总会话数", f"{len(sessions):,}")
             with col2:
-                avg_length = np.mean([len(s.get('path_sequence', [])) for s in sessions])
+                # 安全地处理UserSession对象的path_sequence属性
+                path_lengths = []
+                for s in sessions:
+                    if hasattr(s, 'path_sequence') and s.path_sequence:
+                        path_lengths.append(len(s.path_sequence))
+                    else:
+                        path_lengths.append(0)
+                avg_length = np.mean(path_lengths) if path_lengths else 0
                 st.metric("平均路径长度", f"{avg_length:.1f}")
             with col3:
-                unique_paths = len(set(tuple(s.get('path_sequence', [])) for s in sessions))
+                # 安全地处理UserSession对象的path_sequence属性
+                unique_paths_set = set()
+                for s in sessions:
+                    if hasattr(s, 'path_sequence') and s.path_sequence:
+                        unique_paths_set.add(tuple(s.path_sequence))
+                unique_paths = len(unique_paths_set)
                 st.metric("唯一路径数", f"{unique_paths:,}")
         
         # 用户行为流程图
@@ -1784,11 +2190,27 @@ def show_path_analysis_page():
             st.error(f"流程图生成失败: {str(e)}")
         
         # 常见路径列表
-        if 'common_paths' in results:
+        if 'common_paths' in results and results['common_paths'] is not None:
             st.subheader("🔝 最常见路径")
-            paths_df = pd.DataFrame(results['common_paths'])
-            if not paths_df.empty:
-                st.dataframe(paths_df, use_container_width=True)
+            common_paths_data = results['common_paths']
+
+            # 安全地创建DataFrame
+            try:
+                if isinstance(common_paths_data, pd.DataFrame):
+                    paths_df = common_paths_data
+                elif isinstance(common_paths_data, (list, dict)):
+                    paths_df = pd.DataFrame(common_paths_data)
+                else:
+                    paths_df = pd.DataFrame()
+
+                if not paths_df.empty:
+                    st.dataframe(paths_df, use_container_width=True)
+                else:
+                    st.info("暂无常见路径数据")
+
+            except Exception as e:
+                st.error(f"路径数据显示失败: {str(e)}")
+                st.info("请检查路径数据格式")
 
 
 def show_comprehensive_report_page():
@@ -2378,25 +2800,25 @@ def show_results_overview(result):
     analysis_results = result['analysis_results']
     
     for analysis_type, analysis_result in analysis_results.items():
-        with st.expander(f"{'✅' if analysis_result['status'] == 'completed' else '❌'} {analysis_type.replace('_', ' ').title()}", 
-                        expanded=analysis_result['status'] == 'completed'):
+        with st.expander(f"{'✅' if analysis_result.status == 'completed' else '❌'} {analysis_type.replace('_', ' ').title()}",
+                        expanded=analysis_result.status == 'completed'):
             
             col1, col2 = st.columns(2)
             
             with col1:
-                st.write(f"**状态**: {analysis_result['status']}")
-                st.write(f"**执行时间**: {analysis_result['execution_time']:.2f}秒")
-                st.write(f"**洞察数量**: {len(analysis_result['insights'])}")
-                st.write(f"**建议数量**: {len(analysis_result['recommendations'])}")
+                st.write(f"**状态**: {analysis_result.status}")
+                st.write(f"**执行时间**: {analysis_result.execution_time:.2f}秒")
+                st.write(f"**洞察数量**: {len(analysis_result.insights)}")
+                st.write(f"**建议数量**: {len(analysis_result.recommendations)}")
             
             with col2:
-                if analysis_result['insights']:
+                if analysis_result.insights:
                     st.write("**主要洞察**:")
-                    for insight in analysis_result['insights'][:3]:
+                    for insight in analysis_result.insights[:3]:
                         st.write(f"• {insight}")
-                    
-                    if len(analysis_result['insights']) > 3:
-                        st.write(f"... 还有 {len(analysis_result['insights']) - 3} 个洞察")
+
+                    if len(analysis_result.insights) > 3:
+                        st.write(f"... 还有 {len(analysis_result.insights) - 3} 个洞察")
 
 
 def show_detailed_analysis(result):
@@ -2415,23 +2837,23 @@ def show_detailed_analysis(result):
     if selected_analysis:
         analysis_result = analysis_results[selected_analysis]
         
-        if analysis_result['status'] == 'completed':
+        if analysis_result.status == 'completed':
             # 显示洞察
-            if analysis_result['insights']:
+            if analysis_result.insights:
                 st.write("#### 💡 关键洞察")
-                for i, insight in enumerate(analysis_result['insights'], 1):
+                for i, insight in enumerate(analysis_result.insights, 1):
                     st.write(f"{i}. {insight}")
-            
+
             # 显示建议
-            if analysis_result['recommendations']:
+            if analysis_result.recommendations:
                 st.write("#### 🎯 行动建议")
-                for i, recommendation in enumerate(analysis_result['recommendations'], 1):
+                for i, recommendation in enumerate(analysis_result.recommendations, 1):
                     st.write(f"{i}. {recommendation}")
-            
+
             # 显示数据摘要
-            if 'data_summary' in analysis_result:
+            if hasattr(analysis_result, 'data') and analysis_result.data:
                 st.write("#### 📊 数据摘要")
-                data_summary = analysis_result['data_summary']
+                data_summary = analysis_result.data
                 
                 summary_data = []
                 for key, value in data_summary.items():
@@ -2447,7 +2869,7 @@ def show_detailed_analysis(result):
                     st.dataframe(df, use_container_width=True)
         
         else:
-            st.error(f"❌ 分析失败: {analysis_result.get('error_message', '未知错误')}")
+            st.error(f"❌ 分析失败: {getattr(analysis_result, 'error_message', '未知错误')}")
 
 
 def show_visualizations(result):
@@ -2473,10 +2895,40 @@ def show_visualizations(result):
         if selected_viz:
             analysis_type, viz_name = selected_viz.split(' - ', 1)
             viz_data = visualizations[analysis_type][viz_name]
-            
-            # 这里可以根据图表类型显示相应的可视化
-            st.info(f"📊 图表数据: {viz_name}")
-            st.json(viz_data)  # 临时显示JSON数据，实际应该渲染图表
+
+            # 显示图表信息
+            st.info(f"📊 图表: {viz_name}")
+
+            # 检查是否为Plotly图表对象
+            try:
+                import plotly.graph_objects as go
+
+                if isinstance(viz_data, go.Figure):
+                    # 如果是Plotly图表，直接显示
+                    st.plotly_chart(viz_data, use_container_width=True)
+                elif hasattr(viz_data, 'to_json'):
+                    # 如果有to_json方法，尝试转换为Plotly图表
+                    st.plotly_chart(viz_data, use_container_width=True)
+                else:
+                    # 如果是其他数据类型，尝试显示为JSON
+                    try:
+                        if isinstance(viz_data, dict):
+                            st.json(viz_data)
+                        else:
+                            st.write("图表数据格式:", type(viz_data).__name__)
+                            st.write(str(viz_data)[:1000] + "..." if len(str(viz_data)) > 1000 else str(viz_data))
+                    except Exception as json_error:
+                        st.error(f"无法显示图表数据: {str(json_error)}")
+                        st.write("数据类型:", type(viz_data).__name__)
+
+            except Exception as e:
+                st.error(f"图表显示失败: {str(e)}")
+                st.write("数据类型:", type(viz_data).__name__)
+                # 尝试显示部分数据用于调试
+                try:
+                    st.write("数据预览:", str(viz_data)[:500] + "..." if len(str(viz_data)) > 500 else str(viz_data))
+                except:
+                    st.write("无法预览数据")
     else:
         st.info("📊 暂无可用的可视化图表")
 

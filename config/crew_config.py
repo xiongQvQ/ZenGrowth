@@ -248,7 +248,7 @@ def check_provider_health(provider: str) -> bool:
     try:
         provider_manager = get_provider_manager()
         result = provider_manager.health_check(provider)
-        return result.status.value in ["available", "degraded"]
+        return result.status in ["available", "degraded"]
     except Exception as e:
         logger.warning(f"无法检查提供商 {provider} 的健康状态: {e}")
         return provider == "google"  # 假设Google提供商总是可用

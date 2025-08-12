@@ -184,9 +184,9 @@ class ReportCompilerTool(BaseTool):
                 'trend_analysis': trend_result,
                 'correlation_analysis': correlation_result,
                 'summary': {
-                    'top_events': frequency_result.get('top_events', [])[:5],
-                    'trending_events': trend_result.get('trending_events', [])[:3],
-                    'key_correlations': correlation_result.get('strong_correlations', [])[:3]
+                    'top_events': frequency_result.get('top_events', [])[:5] if isinstance(frequency_result, dict) else [],
+                    'trending_events': trend_result.get('trending_events', [])[:3] if isinstance(trend_result, dict) else [],
+                    'key_correlations': correlation_result.get('strong_correlations', [])[:3] if isinstance(correlation_result, dict) else []
                 }
             }
         except Exception as e:
@@ -238,10 +238,10 @@ class ReportCompilerTool(BaseTool):
                 'retention_analysis': retention_result,
                 'cohort_analysis': cohort_result,
                 'summary': {
-                    'day1_retention': retention_result.get('day1_retention', 0),
-                    'day7_retention': retention_result.get('day7_retention', 0),
-                    'day30_retention': retention_result.get('day30_retention', 0),
-                    'best_cohort': cohort_result.get('best_performing_cohort', 'Unknown')
+                    'day1_retention': retention_result.get('day1_retention', 0) if isinstance(retention_result, dict) else 0,
+                    'day7_retention': retention_result.get('day7_retention', 0) if isinstance(retention_result, dict) else 0,
+                    'day30_retention': retention_result.get('day30_retention', 0) if isinstance(retention_result, dict) else 0,
+                    'best_cohort': cohort_result.get('best_performing_cohort', 'Unknown') if isinstance(cohort_result, dict) else 'Unknown'
                 }
             }
         except Exception as e:
@@ -294,9 +294,9 @@ class ReportCompilerTool(BaseTool):
                 'path_mining': path_result,
                 'flow_analysis': flow_result,
                 'summary': {
-                    'common_paths_count': len(path_result.get('common_paths', [])),
-                    'drop_off_points': flow_result.get('drop_off_points', [])[:3],
-                    'optimal_paths': path_result.get('optimal_paths', [])[:3]
+                    'common_paths_count': len(path_result.get('common_paths', [])) if isinstance(path_result, dict) else 0,
+                    'drop_off_points': flow_result.get('drop_off_points', [])[:3] if isinstance(flow_result, dict) else [],
+                    'optimal_paths': path_result.get('optimal_paths', [])[:3] if isinstance(path_result, dict) else []
                 }
             }
         except Exception as e:

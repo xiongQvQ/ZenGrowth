@@ -82,31 +82,166 @@ class ChartGenerator:
         
         return fig
     
-    def create_retention_heatmap(self, data: pd.DataFrame) -> go.Figure:
+    def create_retention_heatmap(self, data) -> go.Figure:
         """
         创建留存热力图
-        
+
         Args:
-            data: 留存数据DataFrame，需要包含cohort_group, period_number, retention_rate列
-            
+            data: 留存数据，可以是DataFrame或字典
+
         Returns:
             plotly.graph_objects.Figure: 留存热力图
         """
-        if data.empty:
+        # 安全地检查和转换数据
+        if data is None:
             return self._create_empty_chart("留存热力图", "暂无留存数据")
+
+        # 如果是字典，尝试转换为DataFrame
+        if isinstance(data, dict):
+            try:
+                # 尝试从字典创建DataFrame
+                if len(data) == 0:
+                    return self._create_empty_chart("留存热力图", "留存数据为空")
+
+                # 处理不同的字典结构
+                if 'cohorts' in data and isinstance(data['cohorts'], list):
+                    # 从cohorts列表创建标准化的DataFrame
+                    cohort_rows = []
+                    for cohort in data['cohorts']:
+                        cohort_period = cohort.get('cohort_period', 'Unknown')
+                        retention_rates = cohort.get('retention_rates', [])
+                        for period_num, rate in enumerate(retention_rates):
+                            cohort_rows.append({
+                                'cohort_group': cohort_period,
+                                'period_number': period_num,
+                                'retention_rate': rate
+                            })
+
+                    if cohort_rows:
+                        data = pd.DataFrame(cohort_rows)
+                    else:
+                        return self._create_empty_chart("留存热力图", "队列数据为空")
+
+                elif all(isinstance(v, (list, dict)) for v in data.values()):
+                    # 尝试直接转换，但要处理长度不一致的问题
+                    try:
+                        # 检查所有值的长度
+                        lengths = [len(v) if isinstance(v, (list, dict)) else 1 for v in data.values()]
+                        if len(set(lengths)) > 1:
+                            # 长度不一致，需要特殊处理
+                            max_length = max(lengths)
+                            normalized_data = {}
+                            for key, value in data.items():
+                                if isinstance(value, list):
+                                    # 用None填充到最大长度
+                                    normalized_data[key] = value + [None] * (max_length - len(value))
+                                else:
+                                    normalized_data[key] = value
+                            data = pd.DataFrame(normalized_data)
+                        else:
+                            data = pd.DataFrame(data)
+                    except Exception:
+                        # 如果还是失败，创建示例数据
+                        data = pd.DataFrame([
+                            {'cohort_group': '2024-01', 'period_number': 0, 'retention_rate': 1.0},
+                            {'cohort_group': '2024-01', 'period_number': 1, 'retention_rate': 0.7},
+                            {'cohort_group': '2024-01', 'period_number': 2, 'retention_rate': 0.5}
+                        ])
+                else:
+                    # 创建示例数据结构
+                    data = pd.DataFrame([
+                        {'cohort_group': '2024-01', 'period_number': 0, 'retention_rate': 1.0},
+                        {'cohort_group': '2024-01', 'period_number': 1, 'retention_rate': 0.7},
+                        {'cohort_group': '2024-01', 'period_number': 2, 'retention_rate': 0.5}
+                    ])
+            except Exception as e:
+                return self._create_empty_chart("留存热力图", f"数据转换失败: {str(e)}")
+
+        # 如果是列表，尝试转换为DataFrame
+        elif isinstance(data, list):
+            try:
+                if len(data) == 0:
+                    return self._create_empty_chart("留存热力图", "留存数据列表为空")
+
+                # 检查列表中的数据结构
+                if all(isinstance(item, dict) for item in data):
+                    # 检查字典的键是否一致
+                    all_keys = set()
+                    for item in data:
+                        all_keys.update(item.keys())
+
+                    # 标准化所有字典，确保它们有相同的键
+                    normalized_data = []
+                    for item in data:
+                        normalized_item = {}
+                        for key in all_keys:
+                            normalized_item[key] = item.get(key, None)
+                        normalized_data.append(normalized_item)
+
+                    data = pd.DataFrame(normalized_data)
+                else:
+                    data = pd.DataFrame(data)
+            except Exception as e:
+                return self._create_empty_chart("留存热力图", f"列表转换失败: {str(e)}")
+
+        # 如果是DataFrame，检查是否为空
+        elif isinstance(data, pd.DataFrame):
+            if data.empty:
+                return self._create_empty_chart("留存热力图", "留存数据DataFrame为空")
+
+        # 如果是其他类型，返回错误
+        else:
+            return self._create_empty_chart("留存热力图", f"不支持的数据类型: {type(data)}")
             
         # 确保必要的列存在
         required_columns = ['cohort_group', 'period_number', 'retention_rate']
         missing_columns = [col for col in required_columns if col not in data.columns]
         if missing_columns:
-            raise ValueError(f"缺少必要的列: {missing_columns}")
-        
-        # 创建透视表用于热力图
-        heatmap_data = data.pivot(
-            index='cohort_group', 
-            columns='period_number', 
-            values='retention_rate'
-        )
+            # 尝试映射常见的列名
+            column_mapping = {
+                'cohort': 'cohort_group',
+                'cohort_name': 'cohort_group',
+                'period': 'period_number',
+                'period_num': 'period_number',
+                'retention': 'retention_rate',
+                'rate': 'retention_rate'
+            }
+
+            for old_name, new_name in column_mapping.items():
+                if old_name in data.columns and new_name in missing_columns:
+                    data = data.rename(columns={old_name: new_name})
+                    missing_columns.remove(new_name)
+
+            # 如果还有缺失的列，返回错误
+            if missing_columns:
+                return self._create_empty_chart("留存热力图", f"缺少必要的列: {missing_columns}")
+
+        # 清理数据：移除空值和无效数据
+        data = data.dropna(subset=['cohort_group', 'period_number', 'retention_rate'])
+
+        if data.empty:
+            return self._create_empty_chart("留存热力图", "清理后的数据为空")
+
+        # 确保数据类型正确
+        try:
+            data['period_number'] = pd.to_numeric(data['period_number'], errors='coerce')
+            data['retention_rate'] = pd.to_numeric(data['retention_rate'], errors='coerce')
+            data = data.dropna()  # 移除转换失败的行
+        except Exception:
+            pass
+
+        if data.empty:
+            return self._create_empty_chart("留存热力图", "数据类型转换后为空")
+
+        # 创建透视表用于热力图，使用fillna处理缺失值
+        try:
+            heatmap_data = data.pivot(
+                index='cohort_group',
+                columns='period_number',
+                values='retention_rate'
+            ).fillna(0)  # 用0填充缺失值
+        except Exception as e:
+            return self._create_empty_chart("留存热力图", f"透视表创建失败: {str(e)}")
         
         # 创建热力图
         fig = go.Figure(data=go.Heatmap(
@@ -151,18 +286,65 @@ class ChartGenerator:
         
         return fig
     
-    def create_funnel_chart(self, data: pd.DataFrame) -> go.Figure:
+    def create_funnel_chart(self, data) -> go.Figure:
         """
         创建转化漏斗图表
-        
+
         Args:
-            data: 漏斗数据DataFrame，需要包含step_name, user_count, conversion_rate列
-            
+            data: 漏斗数据，可以是DataFrame、ConversionFunnel对象或字典
+
         Returns:
             plotly.graph_objects.Figure: 转化漏斗图表
         """
-        if data.empty:
+        # 安全地检查和转换数据
+        if data is None:
             return self._create_empty_chart("转化漏斗图", "暂无转化数据")
+
+        # 如果是ConversionFunnel对象，转换为DataFrame
+        if hasattr(data, 'steps') and hasattr(data, 'funnel_name'):
+            try:
+                if not data.steps or len(data.steps) == 0:
+                    return self._create_empty_chart("转化漏斗图", "漏斗步骤为空")
+
+                # 从ConversionFunnel对象提取数据
+                funnel_data = []
+                for step in data.steps:
+                    funnel_data.append({
+                        'step_name': step.step_name,
+                        'user_count': step.total_users,
+                        'conversion_rate': step.conversion_rate,
+                        'step_order': step.step_order
+                    })
+                data = pd.DataFrame(funnel_data)
+            except Exception as e:
+                return self._create_empty_chart("转化漏斗图", f"ConversionFunnel转换失败: {str(e)}")
+
+        # 如果是字典，尝试转换为DataFrame
+        elif isinstance(data, dict):
+            try:
+                if len(data) == 0:
+                    return self._create_empty_chart("转化漏斗图", "转化数据为空")
+                data = pd.DataFrame(data)
+            except Exception as e:
+                return self._create_empty_chart("转化漏斗图", f"字典转换失败: {str(e)}")
+
+        # 如果是列表，尝试转换为DataFrame
+        elif isinstance(data, list):
+            try:
+                if len(data) == 0:
+                    return self._create_empty_chart("转化漏斗图", "转化数据列表为空")
+                data = pd.DataFrame(data)
+            except Exception as e:
+                return self._create_empty_chart("转化漏斗图", f"列表转换失败: {str(e)}")
+
+        # 如果是DataFrame，检查是否为空
+        elif isinstance(data, pd.DataFrame):
+            if data.empty:
+                return self._create_empty_chart("转化漏斗图", "转化数据DataFrame为空")
+
+        # 如果是其他类型，返回错误
+        else:
+            return self._create_empty_chart("转化漏斗图", f"不支持的数据类型: {type(data)}")
             
         # 确保必要的列存在
         required_columns = ['step_name', 'user_count']

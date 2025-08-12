@@ -14,7 +14,7 @@ import json
 
 from langchain_core.language_models.base import BaseLanguageModel
 from langchain_google_genai import ChatGoogleGenerativeAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from config.settings import settings, get_provider_api_key, validate_provider_config
 from config.volcano_llm_client import VolcanoLLMClient, VolcanoAPIException, VolcanoErrorType
@@ -41,7 +41,7 @@ class HealthCheckResult(BaseModel):
     status: ProviderStatus
     response_time: Optional[float] = None
     error_message: Optional[str] = None
-    last_check: float = field(default_factory=time.time)
+    last_check: float = Field(default_factory=time.time)
     success_rate: Optional[float] = None
     consecutive_failures: int = 0
     
@@ -258,13 +258,30 @@ class LLMProviderManager:
             
             # 检查提供商健康状态
             if not self._is_provider_healthy(target_provider):
-                if self.fallback_enabled:
-                    fallback_provider = self._get_fallback_provider(target_provider)
-                    if fallback_provider is not None:
-                        logger.warning(f"提供商 {target_provider} 不健康，切换到 {fallback_provider}")
-                        target_provider = fallback_provider
+                # 尝试重新检查健康状态
+                logger.info(f"提供商 {target_provider} 显示不健康，尝试重新检查...")
+                try:
+                    health_result = self.health_check(target_provider)
+                    if health_result.status in ["available", "degraded"]:
+                        logger.info(f"提供商 {target_provider} 重新检查后状态: {health_result.status}")
                     else:
-                        logger.warning(f"提供商 {target_provider} 不健康，但没有可用的回退选项")
+                        # 仍然不健康，尝试回退
+                        if self.fallback_enabled:
+                            fallback_provider = self._get_fallback_provider(target_provider)
+                            if fallback_provider is not None:
+                                logger.warning(f"提供商 {target_provider} 不健康，切换到 {fallback_provider}")
+                                target_provider = fallback_provider
+                            else:
+                                logger.warning(f"提供商 {target_provider} 不健康，但没有可用的回退选项")
+                except Exception as e:
+                    logger.error(f"重新检查提供商 {target_provider} 失败: {e}")
+                    if self.fallback_enabled:
+                        fallback_provider = self._get_fallback_provider(target_provider)
+                        if fallback_provider is not None:
+                            logger.warning(f"提供商 {target_provider} 检查失败，切换到 {fallback_provider}")
+                            target_provider = fallback_provider
+                        else:
+                            logger.warning(f"提供商 {target_provider} 检查失败，但没有可用的回退选项")
             
             logger.info(f"使用LLM提供商: {target_provider}")
             return self._providers[target_provider]
@@ -384,7 +401,7 @@ class LLMProviderManager:
         # 更新健康状态
         self._health_status[provider] = result
         
-        logger.debug(f"提供商 {provider} 健康检查完成: {result.status.value}")
+        logger.debug(f"提供商 {provider} 健康检查完成: {result.status}")
         
         return result
     
@@ -423,10 +440,26 @@ class LLMProviderManager:
             是否健康
         """
         if provider not in self._health_status:
+            # 如果没有健康状态记录，尝试执行健康检查
+            logger.debug(f"提供商 {provider} 没有健康状态记录，执行健康检查")
+            try:
+                self.health_check(provider)
+            except Exception as e:
+                logger.error(f"提供商 {provider} 健康检查失败: {e}")
+                return False
+        
+        if provider not in self._health_status:
             return False
         
         status = self._health_status[provider].status
-        return status in [ProviderStatus.AVAILABLE, ProviderStatus.DEGRADED]
+        # 处理字符串和枚举值
+        if isinstance(status, str):
+            is_healthy = status in ["available", "degraded"]
+        else:
+            is_healthy = status in [ProviderStatus.AVAILABLE, ProviderStatus.DEGRADED]
+        
+        logger.debug(f"提供商 {provider} 健康状态: {status}, 是否健康: {is_healthy}")
+        return is_healthy
     
     def _get_fallback_provider(self, failed_provider: str) -> Optional[str]:
         """
@@ -603,7 +636,7 @@ class LLMProviderManager:
                 "last_request_time": metrics.last_request_time if metrics else None,
             } if metrics else {},
             "status": {
-                "status": status.status.value if status and hasattr(status.status, 'value') else (str(status.status) if status else "unknown"),
+                "status": str(status.status) if status else "unknown",
                 "last_check": status.last_check if status else None,
                 "error_message": status.error_message if status else None,
                 "response_time": status.response_time if status else None,

@@ -80,7 +80,7 @@ class MonitoredVolcanoLLMClient(VolcanoLLMClient):
             max_tokens=kwargs.get("max_tokens", self.max_tokens)
         )
         
-        if run_manager:
+        if run_manager and hasattr(run_manager, 'on_llm_start'):
             run_manager.on_llm_start(
                 serialized={"name": self._llm_type, "request_id": request_id},
                 prompts=[prompt]
@@ -160,6 +160,7 @@ class MonitoredVolcanoLLMClient(VolcanoLLMClient):
                 successful_count += 1
                 
             except VolcanoAPIException as e:
+                logger.error(f"批量生成中的 Volcano API 异常 (提示 {i}): {e.error_type.value} - {e.message}")
                 generations.append([Generation(
                     text="", 
                     generation_info={
@@ -174,6 +175,9 @@ class MonitoredVolcanoLLMClient(VolcanoLLMClient):
                 failed_count += 1
                 
             except Exception as e:
+                logger.error(f"批量生成中的未知异常 (提示 {i}): {e}")
+                import traceback
+                logger.error(f"异常堆栈: {traceback.format_exc()}")
                 generations.append([Generation(
                     text="", 
                     generation_info={

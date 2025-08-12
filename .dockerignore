@@ -1,0 +1,167 @@
+# Docker ignore file for User Behavior Analytics Platform
+# Excludes unnecessary files from Docker build context
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+logs/
+temp/
+tmp/
+.tmp/
+
+# Test files and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation
+docs/
+*.md
+README*
+CHANGELOG*
+LICENSE*
+
+# Development and testing files
+test_*.py
+*_test.py
+tests/
+test_output/
+
+# Data files (should be mounted as volumes)
+data/uploads/*
+data/processed/*
+reports/*
+
+# Configuration files that should be provided via environment
+.env
+.env.*
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Temporary Python files
+*.tmp
+*.temp
+
+# Package files
+*.tar.gz
+*.zip
+*.rar
+
+# IDE specific
+.spyderproject
+.spyproject
+.ropeproject
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Docker files (except Dockerfile)
+docker-compose*.yml
+Dockerfile.*
+
+# Kiro IDE files
+.kiro/
+
+# Summary and documentation files
+*_SUMMARY.md
+*_FIXES_*.md
+COMPLETE_*.md
+TASK_*.md
+REPORT_*.md
+VISUALIZATION_*.md
+ENGINE_*.md
+FINAL_*.md
+PROJECT_STRUCTURE.md
+CREWAI_SOLUTION.md
+
+# Demo and debug files
+demo_*.py
+debug_*.py
+diagnose.py
+emergency_fix.py
+fix_*.py
+final_*.py
+quick_*.py
+simple_*.py
+check_*.py
+find_*.py
+generate_*.py
+integration_example_*.py
+
+# Test and development scripts
+test_*.py
+start_app*.py
+setup.py

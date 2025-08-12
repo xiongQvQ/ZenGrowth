@@ -151,10 +151,10 @@ class IntegrationManager:
             self.data_cleaner = DataCleaner()
             self.storage_manager = DataStorageManager()
             
-            # 分析引擎
-            self.event_engine = EventAnalysisEngine()
-            self.retention_engine = RetentionAnalysisEngine()
-            self.conversion_engine = ConversionAnalysisEngine()
+            # 分析引擎 - 传入存储管理器
+            self.event_engine = EventAnalysisEngine(self.storage_manager)
+            self.retention_engine = RetentionAnalysisEngine(self.storage_manager)
+            self.conversion_engine = ConversionAnalysisEngine(self.storage_manager)
             self.segmentation_engine = UserSegmentationEngine()
             self.path_engine = PathAnalysisEngine()
             
@@ -575,15 +575,31 @@ class IntegrationManager:
                 raise ValueError(f"未知的分析类型: {analysis_type}")
             
             execution_time = time.time() - start_time
-            
-            # 创建分析结果
+
+            # 处理分析结果 - 检查是否已经是正确的格式
+            if isinstance(result_data, dict):
+                # 如果结果已经是字典格式，直接使用
+                data = result_data.get('data', {})
+                insights = result_data.get('insights', [])
+                recommendations = result_data.get('recommendations', [])
+                visualizations = result_data.get('visualizations', {})
+                status = 'completed' if result_data.get('status') == 'success' else 'completed'
+            else:
+                # 如果不是字典，使用格式化方法
+                formatted_result = self._format_analysis_result(result_data)
+                data = formatted_result.get('data', {}) if isinstance(formatted_result, dict) else {}
+                insights = formatted_result.get('insights', []) if isinstance(formatted_result, dict) else []
+                recommendations = formatted_result.get('recommendations', []) if isinstance(formatted_result, dict) else []
+                visualizations = formatted_result.get('visualizations', {}) if isinstance(formatted_result, dict) else {}
+                status = 'completed'
+
             analysis_result = AnalysisResult(
                 analysis_type=analysis_type,
-                status='completed',
-                data=result_data.get('data', {}),
-                insights=result_data.get('insights', []),
-                recommendations=result_data.get('recommendations', []),
-                visualizations=result_data.get('visualizations', {}),
+                status=status,
+                data=data,
+                insights=insights,
+                recommendations=recommendations,
+                visualizations=visualizations,
                 execution_time=execution_time,
                 timestamp=datetime.now()
             )
@@ -772,7 +788,7 @@ class IntegrationManager:
         """执行用户分群分析"""
         if AGENTS_AVAILABLE:
             agent = UserSegmentationAgent(self.storage_manager)
-            result = agent.comprehensive_segmentation_analysis()
+            result = agent.comprehensive_user_segmentation()
         else:
             # 使用分析引擎直接执行
             events_data = self.storage_manager.get_events()
@@ -847,21 +863,84 @@ class IntegrationManager:
                     'error_message': '没有可用的事件数据'
                 }
         
-        # 生成可视化
+        # 生成可视化 - 需要先转换数据格式
         sessions_data = self.storage_manager.get_sessions()
         if not sessions_data.empty:
             try:
-                visualizations = {
-                    'user_flow': self.advanced_visualizer.create_user_behavior_flow(sessions_data),
-                    'path_analysis': self.advanced_visualizer.create_path_analysis_network(sessions_data)
-                }
+                # 尝试生成基础可视化，如果数据格式不匹配则跳过
+                visualizations = {}
+
+                # 检查是否有足够的数据生成用户流程图
+                if len(sessions_data) > 1:
+                    # 创建简单的用户流程数据
+                    flow_data = self._create_flow_data_from_sessions(sessions_data)
+                    if not flow_data.empty:
+                        visualizations['user_flow'] = self.advanced_visualizer.create_user_behavior_flow(flow_data)
+
+                # 检查是否有足够的数据生成路径分析
+                if len(sessions_data) > 1:
+                    # 创建简单的路径数据
+                    path_data = self._create_path_data_from_sessions(sessions_data)
+                    if not path_data.empty:
+                        visualizations['path_analysis'] = self.advanced_visualizer.create_path_analysis_network(path_data)
+
                 result['visualizations'] = visualizations
             except Exception as e:
                 self.logger.warning(f"可视化生成失败: {e}")
                 result['visualizations'] = {}
         
         return result
-    
+
+    def _create_flow_data_from_sessions(self, sessions_data: pd.DataFrame) -> pd.DataFrame:
+        """从会话数据创建用户流程数据"""
+        try:
+            # 创建简单的平台到设备类别的流程
+            flow_records = []
+            for _, session in sessions_data.iterrows():
+                source = session.get('platform', 'unknown')
+                target = session.get('device_category', 'unknown')
+                flow_records.append({
+                    'source': source,
+                    'target': target,
+                    'value': 1
+                })
+
+            if flow_records:
+                flow_df = pd.DataFrame(flow_records)
+                # 聚合相同的流程
+                flow_df = flow_df.groupby(['source', 'target'])['value'].sum().reset_index()
+                return flow_df
+            else:
+                return pd.DataFrame()
+        except Exception as e:
+            self.logger.warning(f"创建流程数据失败: {e}")
+            return pd.DataFrame()
+
+    def _create_path_data_from_sessions(self, sessions_data: pd.DataFrame) -> pd.DataFrame:
+        """从会话数据创建路径分析数据"""
+        try:
+            # 创建简单的地理位置路径
+            path_records = []
+            for _, session in sessions_data.iterrows():
+                from_page = session.get('geo_country', 'unknown')
+                to_page = session.get('geo_city', 'unknown')
+                path_records.append({
+                    'from_page': from_page,
+                    'to_page': to_page,
+                    'transition_count': 1
+                })
+
+            if path_records:
+                path_df = pd.DataFrame(path_records)
+                # 聚合相同的路径
+                path_df = path_df.groupby(['from_page', 'to_page'])['transition_count'].sum().reset_index()
+                return path_df
+            else:
+                return pd.DataFrame()
+        except Exception as e:
+            self.logger.warning(f"创建路径数据失败: {e}")
+            return pd.DataFrame()
+
     def _generate_comprehensive_report(self, analysis_results: Dict[str, AnalysisResult]) -> Dict[str, Any]:
         """
         生成综合报告
@@ -876,15 +955,15 @@ class IntegrationManager:
             self.logger.info("开始生成综合报告")
             
             if AGENTS_AVAILABLE:
-                # 使用报告生成智能体
-                agent = ReportGenerationAgent()
-                
+                # 使用报告生成智能体 - 传入存储管理器
+                agent = ReportGenerationAgent(self.storage_manager)
+
                 # 准备分析结果数据
                 results_data = {}
                 for analysis_type, result in analysis_results.items():
                     if result.status == 'completed':
                         results_data[analysis_type] = result.data
-                
+
                 # 生成报告
                 report = agent.generate_comprehensive_report(results_data)
             else:
@@ -993,7 +1072,8 @@ class IntegrationManager:
                 'summary': processed_data.get('data_summary', {}),
                 'validation': processed_data.get('validation_report', {})
             },
-            'analysis_results': {
+            'analysis_results': analysis_results,  # 保留原始的AnalysisResult对象
+            'analysis_summaries': {
                 analysis_type: {
                     'status': result.status,
                     'insights': result.insights,
@@ -1065,6 +1145,67 @@ class IntegrationManager:
             'memory_available': latest_metrics.memory_available,
             'timestamp': latest_metrics.timestamp.isoformat()
         }
+    
+    def refresh_storage_manager(self, storage_manager: DataStorageManager):
+        """
+        刷新存储管理器并重新初始化分析引擎
+        
+        Args:
+            storage_manager: 新的存储管理器实例
+        """
+        try:
+            self.logger.info("刷新存储管理器和分析引擎")
+            
+            # 更新存储管理器
+            self.storage_manager = storage_manager
+            
+            # 重新初始化分析引擎
+            self.event_engine = EventAnalysisEngine(self.storage_manager)
+            self.retention_engine = RetentionAnalysisEngine(self.storage_manager)
+            self.conversion_engine = ConversionAnalysisEngine(self.storage_manager)
+            
+            self.logger.info("存储管理器和分析引擎刷新完成")
+            
+        except Exception as e:
+            self.logger.error(f"刷新存储管理器失败: {e}")
+    
+    def _format_analysis_result(self, result: Any) -> Dict[str, Any]:
+        """
+        格式化分析结果为统一的字典格式
+        
+        Args:
+            result: 分析结果（可能是字典、列表、对象等）
+            
+        Returns:
+            格式化后的字典
+        """
+        try:
+            if isinstance(result, dict):
+                return result
+            elif isinstance(result, list):
+                return {
+                    "type": "list",
+                    "count": len(result),
+                    "items": result[:5] if len(result) > 5 else result,  # 只保留前5个项目
+                    "truncated": len(result) > 5
+                }
+            elif hasattr(result, '__dict__'):
+                # 如果是对象，尝试转换为字典
+                obj_dict = {}
+                for attr in dir(result):
+                    if not attr.startswith('_') and not callable(getattr(result, attr)):
+                        try:
+                            value = getattr(result, attr)
+                            if isinstance(value, (str, int, float, bool, list, dict)):
+                                obj_dict[attr] = value
+                        except Exception:
+                            continue
+                return obj_dict if obj_dict else {"type": type(result).__name__, "value": str(result)}
+            else:
+                return {"type": type(result).__name__, "value": str(result)}
+        except Exception as e:
+            self.logger.error(f"格式化分析结果失败: {e}")
+            return {"type": "error", "value": str(result), "error": str(e)}
     
     def _cleanup_workflow_data(self, workflow_id: str):
         """清理工作流程数据"""

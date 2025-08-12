@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  analytics-platform-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "8501:8501"
+      - "8502:8502"
+    environment:
+      # Test configuration (参照.env文件)
+      - GOOGLE_API_KEY=test_google_key_for_container_testing_12345678901234567890
+      - ARK_API_KEY=test_ark_key_for_container_testing_12345678901234567890
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_MAX_UPLOAD_SIZE=100
+      - LOG_LEVEL=INFO
+      - APP_TITLE=用户行为分析智能体平台 (Test)
+      
+      # LLM Configuration (参照.env文件)
+      - DEFAULT_LLM_PROVIDER=volcano
+      - LLM_MODEL=gemini-2.5-pro
+      - LLM_TEMPERATURE=0.1
+      - LLM_MAX_TOKENS=4000
+      
+      # Volcano ARK configuration (参照.env文件)
+      - ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+      - ARK_MODEL=doubao-seed-1-6-250615
+      
+      # Multimodal configuration (参照.env文件)
+      - ENABLE_MULTIMODAL=true
+      - MAX_IMAGE_SIZE_MB=10
+      
+      # Fallback configuration (参照.env文件)
+      - ENABLE_FALLBACK=true
+      - ENABLED_PROVIDERS=["volcano", "google"]
+      - FALLBACK_ORDER=["volcano", "google"]
+    
+    volumes:
+      # Persistent data storage
+      - analytics-test-data:/app/data
+      - analytics-test-reports:/app/reports
+      - analytics-test-logs:/app/logs
+      
+      # Optional: Mount local config for testing
+      # - ./test-config:/app/config:ro
+    
+    healthcheck:
+      test: ["CMD", "python3", "/app/healthcheck.py"]
+      interval: 30s
+      timeout: 15s
+      start_period: 90s
+      retries: 3
+    
+    restart: unless-stopped
+    
+    # Resource limits for testing
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+volumes:
+  analytics-test-data:
+    driver: local
+  analytics-test-reports:
+    driver: local
+  analytics-test-logs:
+    driver: local
+
+networks:
+  default:
+    name: analytics-test-network

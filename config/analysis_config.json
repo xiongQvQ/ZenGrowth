@@ -13,13 +13,13 @@
       30
     ],
     "cohort_type": "weekly",
-    "min_cohort_size": 100,
+    "min_cohort_size": 10,
     "analysis_window_days": 90
   },
   "conversion_analysis": {
     "funnel_steps": [],
     "conversion_window_hours": 24,
-    "min_funnel_users": 50,
+    "min_funnel_users": 10,
     "attribution_model": "first_touch"
   },
   "user_segmentation": {
@@ -30,7 +30,7 @@
       "demographic",
       "temporal"
     ],
-    "min_cluster_size": 100,
+    "min_cluster_size": 20,
     "max_clusters": 10
   },
   "path_analysis": {

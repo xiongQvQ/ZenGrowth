@@ -138,16 +138,28 @@ class RetentionAnalysisEngine:
         Returns:
             队列键值字符串
         """
-        if period == 'daily':
+        # 支持中英文队列周期
+        period_mapping = {
+            '日': 'daily',
+            '周': 'weekly',
+            '月': 'monthly',
+            'day': 'daily',
+            'week': 'weekly',
+            'month': 'monthly'
+        }
+
+        normalized_period = period_mapping.get(period, period)
+
+        if normalized_period == 'daily':
             return date.strftime('%Y-%m-%d')
-        elif period == 'weekly':
+        elif normalized_period == 'weekly':
             # 获取周的开始日期（周一）
             start_of_week = date - timedelta(days=date.weekday())
             return start_of_week.strftime('%Y-W%U')
-        elif period == 'monthly':
+        elif normalized_period == 'monthly':
             return date.strftime('%Y-%m')
         else:
-            raise ValueError(f"不支持的队列周期: {period}")
+            raise ValueError(f"不支持的队列周期: {period} (支持的格式: daily/日, weekly/周, monthly/月)")
             
     def calculate_retention_rates(self,
                                 events: Optional[pd.DataFrame] = None,
@@ -331,14 +343,26 @@ class RetentionAnalysisEngine:
             user_activity_periods = defaultdict(set)
             
             # 计算周期长度
-            if analysis_type == 'daily':
+            # 支持中英文分析类型
+            analysis_type_mapping = {
+                '日': 'daily',
+                '周': 'weekly',
+                '月': 'monthly',
+                'day': 'daily',
+                'week': 'weekly',
+                'month': 'monthly'
+            }
+
+            normalized_analysis_type = analysis_type_mapping.get(analysis_type, analysis_type)
+
+            if normalized_analysis_type == 'daily':
                 period_delta = timedelta(days=1)
-            elif analysis_type == 'weekly':
+            elif normalized_analysis_type == 'weekly':
                 period_delta = timedelta(weeks=1)
-            elif analysis_type == 'monthly':
+            elif normalized_analysis_type == 'monthly':
                 period_delta = timedelta(days=30)  # 简化为30天
             else:
-                raise ValueError(f"不支持的分析类型: {analysis_type}")
+                raise ValueError(f"不支持的分析类型: {analysis_type} (支持的格式: daily/日, weekly/周, monthly/月)")
                 
             # 为每个事件计算所属周期
             for _, event in events.iterrows():
@@ -348,11 +372,11 @@ class RetentionAnalysisEngine:
                 # 计算事件距离队列开始的周期数
                 time_diff = event_date - cohort_start_date
                 
-                if analysis_type == 'daily':
+                if normalized_analysis_type == 'daily':
                     period = time_diff.days
-                elif analysis_type == 'weekly':
+                elif normalized_analysis_type == 'weekly':
                     period = time_diff.days // 7
-                elif analysis_type == 'monthly':
+                elif normalized_analysis_type == 'monthly':
                     period = time_diff.days // 30
                     
                 # 只记录在分析范围内的周期
