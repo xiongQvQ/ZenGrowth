@@ -330,69 +330,159 @@ class ConfigValidator:
             }
         }
 
+    def load_env_file(self, env_file: str) -> Dict[str, str]:
+        """Load and parse environment variables from .env file"""
+        env_vars = {}
+        
+        if not Path(env_file).exists():
+            self.warnings.append(f"Environment file not found: {env_file}")
+            return env_vars
+        
+        try:
+            with open(env_file, 'r', encoding='utf-8') as f:
+                for line_num, line in enumerate(f, 1):
+                    line = line.strip()
+                    
+                    # Skip empty lines and comments
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    # Parse key=value pairs
+                    if '=' not in line:
+                        self.warnings.append(f"Line {line_num}: Invalid format (no '=' found): {line}")
+                        continue
+                    
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    
+                    # Remove quotes if present
+                    if (value.startswith('"') and value.endswith('"')) or \
+                       (value.startswith("'") and value.endswith("'")):
+                        value = value[1:-1]
+                    
+                    # Validate key format
+                    if not re.match(r'^[A-Z_][A-Z0-9_]*$', key):
+                        self.warnings.append(f"Line {line_num}: Invalid environment variable name: {key}")
+                        continue
+                    
+                    env_vars[key] = value
+                    
+        except Exception as e:
+            self.errors.append(f"Failed to parse environment file {env_file}: {str(e)}")
+        
+        return env_vars
+    
+    def export_shell_vars(self, env_vars: Dict[str, str]) -> str:
+        """Export environment variables as shell export statements"""
+        shell_exports = []
+        
+        for key, value in env_vars.items():
+            # Escape special characters for shell
+            escaped_value = value.replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$').replace('`', '\\`')
+            shell_exports.append(f'export {key}="{escaped_value}"')
+        
+        return '\n'.join(shell_exports)
+
 def main():
     """Main function for standalone execution"""
-    print("🔧 Configuration Validation")
-    print("=" * 40)
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Configuration Validator for User Behavior Analytics Platform')
+    parser.add_argument('--load-env', help='Load environment variables from .env file')
+    parser.add_argument('--export-shell', action='store_true', help='Export variables as shell export statements')
+    parser.add_argument('--json', action='store_true', help='Output results in JSON format')
+    parser.add_argument('--validate-only', action='store_true', help='Only validate, do not load environment')
+    
+    args = parser.parse_args()
     
     validator = ConfigValidator()
-    is_valid, report = validator.validate_all()
     
-    # Print summary
-    summary = report['summary']
-    print(f"📊 Validation Summary:")
-    print(f"   Total Checks: {summary['total_validations']}")
-    print(f"   Passed: {summary['passed']}")
-    print(f"   Failed: {summary['failed']}")
-    print(f"   Errors: {summary['errors']}")
-    print(f"   Warnings: {summary['warnings']}")
-    print()
-    
-    # Print detailed results
-    for name, result in report['validations'].items():
-        status = result['status']
-        if status == 'passed':
-            print(f"✅ {name}: PASSED")
-        elif status == 'failed':
-            print(f"❌ {name}: FAILED")
+    # Handle environment loading mode
+    if args.load_env:
+        env_vars = validator.load_env_file(args.load_env)
+        
+        if args.export_shell:
+            # Export as shell variables
+            shell_exports = validator.export_shell_vars(env_vars)
+            print(shell_exports)
+            
+            # Print warnings and errors to stderr
+            if validator.warnings:
+                for warning in validator.warnings:
+                    print(f"# Warning: {warning}", file=sys.stderr)
+            
+            if validator.errors:
+                for error in validator.errors:
+                    print(f"# Error: {error}", file=sys.stderr)
+                sys.exit(1)
+            
+            sys.exit(0)
         else:
-            print(f"⚠️  {name}: ERROR")
-            if 'error' in result:
-                print(f"   Error: {result['error']}")
+            # Load into current environment and validate
+            for key, value in env_vars.items():
+                os.environ[key] = value
     
-    print()
-    
-    # Print errors
-    if report['errors']:
-        print("❌ Errors:")
-        for error in report['errors']:
-            print(f"   - {error}")
-        print()
-    
-    # Print warnings
-    if report['warnings']:
-        print("⚠️  Warnings:")
-        for warning in report['warnings']:
-            print(f"   - {warning}")
-        print()
-    
-    # Print info messages
-    if report['info']:
-        print("ℹ️  Information:")
-        for info in report['info']:
-            print(f"   - {info}")
-        print()
-    
-    print("=" * 40)
-    print(f"🎯 Overall Status: {'VALID' if is_valid else 'INVALID'}")
-    
-    # Output JSON if requested
-    if len(sys.argv) > 1 and sys.argv[1] == '--json':
-        print("\n📄 JSON Output:")
-        print(json.dumps(report, indent=2))
-    
-    # Exit with appropriate code
-    sys.exit(0 if is_valid else 1)
+    # Run validation
+    if not args.validate_only or not args.load_env:
+        print("🔧 Configuration Validation", file=sys.stderr)
+        print("=" * 40, file=sys.stderr)
+        
+        is_valid, report = validator.validate_all()
+        
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            # Print summary
+            summary = report['summary']
+            print(f"📊 Validation Summary:", file=sys.stderr)
+            print(f"   Total Checks: {summary['total_validations']}", file=sys.stderr)
+            print(f"   Passed: {summary['passed']}", file=sys.stderr)
+            print(f"   Failed: {summary['failed']}", file=sys.stderr)
+            print(f"   Errors: {summary['errors']}", file=sys.stderr)
+            print(f"   Warnings: {summary['warnings']}", file=sys.stderr)
+            print(file=sys.stderr)
+            
+            # Print detailed results
+            for name, result in report['validations'].items():
+                status = result['status']
+                if status == 'passed':
+                    print(f"✅ {name}: PASSED", file=sys.stderr)
+                elif status == 'failed':
+                    print(f"❌ {name}: FAILED", file=sys.stderr)
+                else:
+                    print(f"⚠️  {name}: ERROR", file=sys.stderr)
+                    if 'error' in result:
+                        print(f"   Error: {result['error']}", file=sys.stderr)
+            
+            print(file=sys.stderr)
+            
+            # Print errors
+            if report['errors']:
+                print("❌ Errors:", file=sys.stderr)
+                for error in report['errors']:
+                    print(f"   - {error}", file=sys.stderr)
+                print(file=sys.stderr)
+            
+            # Print warnings
+            if report['warnings']:
+                print("⚠️  Warnings:", file=sys.stderr)
+                for warning in report['warnings']:
+                    print(f"   - {warning}", file=sys.stderr)
+                print(file=sys.stderr)
+            
+            # Print info messages
+            if report['info']:
+                print("ℹ️  Information:", file=sys.stderr)
+                for info in report['info']:
+                    print(f"   - {info}", file=sys.stderr)
+                print(file=sys.stderr)
+            
+            print("=" * 40, file=sys.stderr)
+            print(f"🎯 Overall Status: {'VALID' if is_valid else 'INVALID'}", file=sys.stderr)
+        
+        # Exit with appropriate code
+        sys.exit(0 if is_valid else 1)
 
 if __name__ == '__main__':
     main()

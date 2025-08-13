@@ -38,7 +38,7 @@
   },
   "ui_settings": {
     "theme": "light",
-    "language": "zh-CN",
+    "language": "en-US",
     "page_size": 20,
     "auto_refresh": false,
     "show_debug_info": false

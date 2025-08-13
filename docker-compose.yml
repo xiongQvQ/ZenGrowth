@@ -44,8 +44,8 @@ services:
       
       # Fallback Configuration
       - ENABLE_FALLBACK=true
-      - ENABLED_PROVIDERS=["volcano", "google"]
-      - FALLBACK_ORDER=["volcano", "google"]
+      - 'ENABLED_PROVIDERS=["volcano", "google"]'
+      - 'FALLBACK_ORDER=["volcano", "google"]'
     
     env_file:
       - .env  # Load sensitive variables from .env file

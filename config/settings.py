@@ -5,6 +5,7 @@
 
 import os
 import json
+import ast
 from typing import Optional, List, Union
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings
@@ -50,7 +51,7 @@ class Settings(BaseSettings):
         description="默认LLM提供商 (google, volcano)"
     )
     
-    enabled_providers: List[str] = Field(
+    enabled_providers: Union[List[str], str] = Field(
         default=["google", "volcano"],
         env="ENABLED_PROVIDERS",
         description="启用的LLM提供商列表"
@@ -63,7 +64,7 @@ class Settings(BaseSettings):
         description="启用提供商回退机制"
     )
     
-    fallback_order: List[str] = Field(
+    fallback_order: Union[List[str], str] = Field(
         default=["google", "volcano"],
         env="FALLBACK_ORDER",
         description="提供商回退顺序"
@@ -82,7 +83,7 @@ class Settings(BaseSettings):
         description="最大图片大小（MB）"
     )
     
-    supported_image_formats: List[str] = Field(
+    supported_image_formats: Union[List[str], str] = Field(
         default=["jpg", "jpeg", "png", "gif", "webp"],
         env="SUPPORTED_IMAGE_FORMATS",
         description="支持的图片格式列表"
@@ -162,19 +163,56 @@ class Settings(BaseSettings):
             raise ValueError(f"默认提供商必须是以下之一: {valid_providers}")
         return v
     
+    @staticmethod
+    def _parse_list_value(value):
+        """将环境变量中的列表值解析为字符串列表。
+        支持以下格式：
+        - JSON 数组: ["volcano", "google"]
+        - Python 字面量列表: ['volcano', 'google']
+        - 带中括号的逗号分隔: [volcano, google]
+        - 纯逗号分隔: volcano, google
+        - 直接列表对象（已解析）
+        """
+        # 已是列表
+        if isinstance(value, list):
+            return [str(item).strip().strip('"').strip("'") for item in value if str(item).strip()]
+        # 字符串需要进一步解析
+        if isinstance(value, str):
+            s = value.strip()
+            if not s:
+                return []
+            # 优先尝试 JSON
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return [str(item).strip().strip('"').strip("'") for item in parsed if str(item).strip()]
+            except json.JSONDecodeError:
+                pass
+            # 尝试 Python 字面量
+            try:
+                parsed = ast.literal_eval(s)
+                if isinstance(parsed, list):
+                    return [str(item).strip().strip('"').strip("'") for item in parsed if str(item).strip()]
+            except (ValueError, SyntaxError):
+                pass
+            # 尝试去除包裹的中括号后按逗号分割
+            if s.startswith('[') and s.endswith(']'):
+                s = s[1:-1]
+            items = [part.strip().strip('"').strip("'") for part in s.split(',')]
+            return [item for item in items if item]
+        # 其他类型直接返回，由后续校验处理
+        return value
+
     @validator('enabled_providers', pre=True)
     def parse_enabled_providers(cls, v):
-        """解析启用的提供商列表（支持JSON格式或逗号分隔）"""
-        if isinstance(v, str):
-            # 尝试解析JSON格式
-            if v.startswith('[') and v.endswith(']'):
-                try:
-                    return json.loads(v)
-                except json.JSONDecodeError:
-                    pass
-            # 尝试逗号分隔格式
-            return [provider.strip() for provider in v.split(',') if provider.strip()]
-        return v
+        """解析启用的提供商列表（兼容多种格式）"""
+        # 添加错误处理和日志
+        try:
+            result = cls._parse_list_value(v)
+            return result if result else ["google", "volcano"]  # 提供默认值
+        except Exception as e:
+            print(f"Warning: Failed to parse enabled_providers: {e}, using default")
+            return ["google", "volcano"]  # 返回默认值
     
     @validator('enabled_providers')
     def validate_enabled_providers(cls, v):
@@ -187,17 +225,14 @@ class Settings(BaseSettings):
     
     @validator('fallback_order', pre=True)
     def parse_fallback_order(cls, v):
-        """解析回退顺序列表（支持JSON格式或逗号分隔）"""
-        if isinstance(v, str):
-            # 尝试解析JSON格式
-            if v.startswith('[') and v.endswith(']'):
-                try:
-                    return json.loads(v)
-                except json.JSONDecodeError:
-                    pass
-            # 尝试逗号分隔格式
-            return [provider.strip() for provider in v.split(',') if provider.strip()]
-        return v
+        """解析回退顺序列表（兼容多种格式）"""
+        # 添加错误处理和日志
+        try:
+            result = cls._parse_list_value(v)
+            return result if result else ["volcano", "google"]  # 提供默认值
+        except Exception as e:
+            print(f"Warning: Failed to parse fallback_order: {e}, using default")
+            return ["volcano", "google"]  # 返回默认值
     
     @validator('fallback_order')
     def validate_fallback_order(cls, v):
@@ -217,17 +252,14 @@ class Settings(BaseSettings):
     
     @validator('supported_image_formats', pre=True)
     def parse_supported_image_formats(cls, v):
-        """解析支持的图片格式列表（支持JSON格式或逗号分隔）"""
-        if isinstance(v, str):
-            # 尝试解析JSON格式
-            if v.startswith('[') and v.endswith(']'):
-                try:
-                    return json.loads(v)
-                except json.JSONDecodeError:
-                    pass
-            # 尝试逗号分隔格式
-            return [fmt.strip() for fmt in v.split(',') if fmt.strip()]
-        return v
+        """解析支持的图片格式列表（兼容多种格式）"""
+        # 添加错误处理和日志
+        try:
+            result = cls._parse_list_value(v)
+            return result if result else ["jpg", "jpeg", "png", "gif", "webp"]  # 提供默认值
+        except Exception as e:
+            print(f"Warning: Failed to parse supported_image_formats: {e}, using default")
+            return ["jpg", "jpeg", "png", "gif", "webp"]  # 返回默认值
     
     @validator('supported_image_formats')
     def validate_image_formats(cls, v):
@@ -250,8 +282,22 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
 
 
-# 全局配置实例
-settings = Settings()
+# 全局配置实例 - 使用延迟加载以确保环境变量正确设置
+def _create_settings():
+    """创建设置实例，带有错误处理"""
+    try:
+        return Settings()
+    except Exception as e:
+        print(f"Warning: Failed to create Settings instance: {e}")
+        print("Using fallback configuration...")
+        import os
+        # 设置默认环境变量
+        os.environ.setdefault('ENABLED_PROVIDERS', '["google", "volcano"]')
+        os.environ.setdefault('FALLBACK_ORDER', '["google", "volcano"]')
+        os.environ.setdefault('DEFAULT_LLM_PROVIDER', 'google')
+        return Settings()
+
+settings = _create_settings()
 
 
 def get_google_api_key() -> str:
