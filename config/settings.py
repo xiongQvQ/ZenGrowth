@@ -4,7 +4,8 @@
 """
 
 import os
-from typing import Optional, List
+import json
+from typing import Optional, List, Union
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
@@ -161,6 +162,20 @@ class Settings(BaseSettings):
             raise ValueError(f"默认提供商必须是以下之一: {valid_providers}")
         return v
     
+    @validator('enabled_providers', pre=True)
+    def parse_enabled_providers(cls, v):
+        """解析启用的提供商列表（支持JSON格式或逗号分隔）"""
+        if isinstance(v, str):
+            # 尝试解析JSON格式
+            if v.startswith('[') and v.endswith(']'):
+                try:
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    pass
+            # 尝试逗号分隔格式
+            return [provider.strip() for provider in v.split(',') if provider.strip()]
+        return v
+    
     @validator('enabled_providers')
     def validate_enabled_providers(cls, v):
         """验证启用的提供商列表"""
@@ -168,6 +183,20 @@ class Settings(BaseSettings):
         for provider in v:
             if provider not in valid_providers:
                 raise ValueError(f"提供商 '{provider}' 不在有效列表中: {valid_providers}")
+        return v
+    
+    @validator('fallback_order', pre=True)
+    def parse_fallback_order(cls, v):
+        """解析回退顺序列表（支持JSON格式或逗号分隔）"""
+        if isinstance(v, str):
+            # 尝试解析JSON格式
+            if v.startswith('[') and v.endswith(']'):
+                try:
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    pass
+            # 尝试逗号分隔格式
+            return [provider.strip() for provider in v.split(',') if provider.strip()]
         return v
     
     @validator('fallback_order')
@@ -184,6 +213,20 @@ class Settings(BaseSettings):
         """验证图片大小限制"""
         if v <= 0 or v > 100:
             raise ValueError("图片大小必须在1-100MB之间")
+        return v
+    
+    @validator('supported_image_formats', pre=True)
+    def parse_supported_image_formats(cls, v):
+        """解析支持的图片格式列表（支持JSON格式或逗号分隔）"""
+        if isinstance(v, str):
+            # 尝试解析JSON格式
+            if v.startswith('[') and v.endswith(']'):
+                try:
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    pass
+            # 尝试逗号分隔格式
+            return [fmt.strip() for fmt in v.split(',') if fmt.strip()]
         return v
     
     @validator('supported_image_formats')

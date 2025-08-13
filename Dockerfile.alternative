@@ -1,8 +1,8 @@
+# Alternative Dockerfile with Chinese mirrors for better connectivity
 # Multi-stage Dockerfile for User Behavior Analytics Platform
-# Optimized for production deployment with security and performance considerations
 
 # ================================
-# Stage 1: Base Dependencies
+# Stage 1: Base Dependencies with Chinese Mirrors
 # ================================
 FROM python:3.11-slim AS base
 
@@ -12,7 +12,11 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies with retry logic and improved error handling
+# Use Tsinghua University mirrors for better connectivity in China
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list && \
+    sed -i 's/security.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list
+
+# Install system dependencies with retry logic and Chinese mirrors
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* && \
     for i in 1 2 3; do \
         apt-get update && \
@@ -21,6 +25,7 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* && \
             build-essential \
             curl \
             git \
+            ca-certificates \
         && break || { \
             echo "Attempt $i failed, retrying in 10 seconds..."; \
             sleep 10; \
@@ -42,9 +47,17 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Copy requirements file
 COPY requirements.txt .
 
-# Install Python dependencies with caching optimization
-RUN pip install --upgrade pip setuptools wheel -i https://pypi.tuna.tsinghua.edu.cn/simple/ && \
-    pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/
+# Install Python dependencies with Chinese PyPI mirror and timeout settings
+RUN pip install --upgrade pip setuptools wheel \
+        --index-url https://pypi.tuna.tsinghua.edu.cn/simple/ \
+        --trusted-host pypi.tuna.tsinghua.edu.cn \
+        --timeout 300 \
+        --retries 3 && \
+    pip install -r requirements.txt \
+        --index-url https://pypi.tuna.tsinghua.edu.cn/simple/ \
+        --trusted-host pypi.tuna.tsinghua.edu.cn \
+        --timeout 300 \
+        --retries 3
 
 # ================================
 # Stage 3: Application Setup
@@ -80,17 +93,11 @@ COPY --chown=analytics:analytics config_validator.py /app/config_validator.py
 COPY --chown=analytics:analytics startup_monitor.py /app/startup_monitor.py
 COPY --chown=analytics:analytics load_env.py /app/load_env.py
 
-# Copy .env.example as template (actual .env should be mounted or provided via environment)
+# Copy .env.example as template
 COPY --chown=analytics:analytics .env.example /app/.env.example
 
 # Make scripts executable
 RUN chmod +x /app/entrypoint.sh /app/healthcheck.py /app/config_validator.py /app/startup_monitor.py /app/load_env.py
-
-# Expose port for development
-EXPOSE 8501
-
-# Set entry point for application stage
-ENTRYPOINT ["/app/entrypoint.sh"]
 
 # ================================
 # Stage 4: Production Image
@@ -102,6 +109,10 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH"
 
+# Use Chinese mirrors for runtime dependencies
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list && \
+    sed -i 's/security.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list
+
 # Install minimal runtime dependencies with retry logic
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* && \
     for i in 1 2 3; do \
@@ -109,6 +120,7 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* && \
         apt-get install -y --no-install-recommends \
             --fix-missing \
             curl \
+            ca-certificates \
         && break || { \
             echo "Attempt $i failed, retrying in 10 seconds..."; \
             sleep 10; \
@@ -153,45 +165,3 @@ HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=3 \
 # Set entry point
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-# ================================
-# Stage 5: Security-Hardened Production Image
-# ================================
-FROM production AS production-secure
-
-# Switch back to root temporarily for security configurations
-USER root
-
-# Remove unnecessary packages and clean up
-RUN apt-get update && apt-get remove -y \
-    && apt-get autoremove -y \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /tmp/* \
-    && rm -rf /var/tmp/*
-
-# Set up read-only root filesystem preparation
-# Create necessary writable directories
-RUN mkdir -p /tmp-app /var-app && \
-    chown analytics:analytics /tmp-app /var-app
-
-# Remove shell access for security (optional, can be enabled for debugging)
-# RUN rm -rf /bin/bash /bin/sh /usr/bin/sh
-
-# Set strict file permissions
-RUN find /app -type f -exec chmod 644 {} \; && \
-    find /app -type d -exec chmod 755 {} \; && \
-    chmod +x /app/entrypoint.sh /app/healthcheck.py /app/monitoring_endpoints.py /app/container_config_manager.py
-
-# Switch back to non-root user
-USER analytics
-
-# Security labels and metadata
-LABEL security.scan="enabled" \
-      security.non-root="true" \
-      security.readonly-rootfs="supported" \
-      security.capabilities="minimal" \
-      maintainer="analytics-platform-team" \
-      version="1.0.0-secure"
-
-# Default security-focused entry point
-ENTRYPOINT ["/app/entrypoint.sh"]

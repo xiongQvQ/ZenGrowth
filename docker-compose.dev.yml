@@ -65,7 +65,8 @@ services:
       - ./data/development:/app/data
       - ./reports/development:/app/reports
       - ./logs/development:/app/logs
-      - ./config/development:/app/config
+      # Note: Config directory is not mounted to preserve built-in config files
+      # - ./config/development:/app/config
       
       # Preserve node_modules and other dependencies
       - dev-node-modules:/app/node_modules
