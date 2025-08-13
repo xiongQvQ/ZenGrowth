@@ -12,31 +12,107 @@
 
 ## 📋 系统要求
 
+### 本地运行
 - Python 3.8+
-- Google Gemini API密钥
+- Google Gemini API密钥或Volcano ARK API密钥
 - 8GB+ RAM (推荐)
 - 2GB+ 可用磁盘空间
 
+### Docker运行 (推荐)
+- Docker Engine 20.10+
+- Docker Compose 2.0+
+- 4GB+ RAM可用
+- 10GB+ 可用磁盘空间
+
 ## 🛠️ 快速开始
 
-### 1. 克隆项目
+### 🐳 Docker部署 (推荐)
+
+Docker部署是最简单快速的启动方式，无需配置复杂的Python环境。
+
+#### 1. 克隆项目
 ```bash
 git clone <repository-url>
 cd user-behavior-analytics-platform
 ```
 
-### 2. 自动化设置
+#### 2. 配置环境变量
+创建 `.env` 文件并配置API密钥：
+```bash
+# 复制环境变量模板
+cp .env.example .env
+
+# 编辑环境变量文件
+# 至少需要配置以下其中一个API密钥：
+# GOOGLE_API_KEY=your_google_api_key_here
+# 或
+# ARK_API_KEY=your_volcano_ark_api_key_here
+```
+
+#### 3. 快速启动
+
+**开发环境启动：**
+```bash
+# 使用部署脚本（推荐）
+./deploy.sh -e development -a up -b
+
+# 或直接使用Docker Compose
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+**生产环境启动：**
+```bash
+# 使用部署脚本（推荐）
+./deploy.sh -e production -a up -d
+
+# 或直接使用Docker Compose
+docker-compose up -d
+```
+
+#### 4. 访问应用
+- 主应用界面: http://localhost:8501
+- 监控和健康检查: http://localhost:8502/health
+
+#### 5. 查看日志
+```bash
+# 使用部署脚本
+./deploy.sh -e development -a logs -f
+
+# 或直接使用Docker Compose
+docker-compose logs -f
+```
+
+#### 6. 停止服务
+```bash
+# 使用部署脚本
+./deploy.sh -e development -a down
+
+# 或直接使用Docker Compose
+docker-compose down
+```
+
+### 🔧 本地开发部署
+
+如果你希望进行本地开发或无法使用Docker，可以按以下步骤配置：
+
+#### 1. 克隆项目
+```bash
+git clone <repository-url>
+cd user-behavior-analytics-platform
+```
+
+#### 2. 自动化设置
 ```bash
 python setup.py
 ```
 
-### 3. 配置API密钥
+#### 3. 配置API密钥
 编辑 `.env` 文件，设置你的Google Gemini API密钥：
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 ```
 
-### 4. 激活虚拟环境
+#### 4. 激活虚拟环境
 ```bash
 # Windows
 venv\Scripts\activate
@@ -45,7 +121,7 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-### 5. 启动应用
+#### 5. 启动应用
 ```bash
 streamlit run main.py
 ```
@@ -72,7 +148,42 @@ user-behavior-analytics-platform/
 ## 🔧 配置说明
 
 ### 环境变量配置
-在 `.env` 文件中可配置以下参数：
+
+#### Docker环境配置
+Docker部署支持多种配置方式，可通过 `.env` 文件或Docker Compose环境变量配置：
+
+```env
+# === 必需配置（至少配置其中一个） ===
+GOOGLE_API_KEY=your_google_api_key_here
+ARK_API_KEY=your_volcano_ark_api_key_here
+
+# === LLM提供商配置 ===
+DEFAULT_LLM_PROVIDER=volcano                    # 默认提供商: volcano, google
+LLM_MODEL=gemini-2.5-pro                       # 模型名称
+LLM_TEMPERATURE=0.1                            # 温度参数
+LLM_MAX_TOKENS=4000                            # 最大令牌数
+
+# === Volcano ARK配置 ===
+ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+ARK_MODEL=doubao-seed-1-6-250615
+
+# === 应用配置 ===
+APP_TITLE=用户行为分析智能体平台
+LOG_LEVEL=INFO                                 # 日志级别: DEBUG, INFO, WARN, ERROR
+STREAMLIT_SERVER_PORT=8501                     # Streamlit端口
+
+# === 多模态配置 ===
+ENABLE_MULTIMODAL=true                         # 启用多模态功能
+MAX_IMAGE_SIZE_MB=10                           # 最大图片大小
+
+# === 故障转移配置 ===
+ENABLE_FALLBACK=true                           # 启用故障转移
+ENABLED_PROVIDERS=["volcano", "google"]        # 启用的提供商
+FALLBACK_ORDER=["volcano", "google"]           # 故障转移顺序
+```
+
+#### 本地环境配置
+本地运行时，在 `.env` 文件中可配置以下参数：
 
 ```env
 # 必需配置
@@ -112,10 +223,67 @@ LOG_LEVEL=INFO
 
 ## 🔍 故障排除
 
-### 常见问题
+### Docker部署常见问题
+
+1. **容器启动失败**
+   ```bash
+   # 检查容器日志
+   docker-compose logs analytics-platform
+   
+   # 检查容器状态
+   docker-compose ps
+   
+   # 验证配置
+   ./deploy.sh -e development -a status
+   ```
+
+2. **API密钥配置问题**
+   ```bash
+   # 检查环境变量是否正确加载
+   docker-compose exec analytics-platform env | grep API
+   
+   # 测试API连接
+   curl http://localhost:8502/api/connectivity
+   ```
+
+3. **端口占用问题**
+   ```bash
+   # 检查端口占用
+   netstat -tlnp | grep 8501
+   
+   # 修改端口（在docker-compose.yml中）
+   ports:
+     - "8503:8501"  # 使用不同的主机端口
+   ```
+
+4. **健康检查失败**
+   ```bash
+   # 检查健康状态
+   curl http://localhost:8502/health
+   
+   # 查看详细健康信息
+   curl http://localhost:8502/health/detailed | jq
+   ```
+
+5. **权限问题**
+   ```bash
+   # 确保数据目录有正确权限
+   sudo chown -R 1000:1000 ./data ./reports ./logs
+   ```
+
+6. **内存不足**
+   ```bash
+   # 调整Docker资源限制（在docker-compose.yml中）
+   deploy:
+     resources:
+       limits:
+         memory: 2G  # 减少内存限制
+   ```
+
+### 本地部署常见问题
 
 1. **API密钥错误**
-   - 检查 `.env` 文件中的 `GOOGLE_API_KEY` 设置
+   - 检查 `.env` 文件中的 `GOOGLE_API_KEY` 或 `ARK_API_KEY` 设置
    - 确认API密钥有效且有足够配额
 
 2. **依赖安装失败**
@@ -128,6 +296,37 @@ LOG_LEVEL=INFO
 
 4. **端口占用**
    - 使用不同端口启动: `streamlit run main.py --server.port 8502`
+
+### 调试技巧
+
+1. **启用调试模式**
+   ```bash
+   # Docker环境
+   echo "LOG_LEVEL=DEBUG" >> .env
+   docker-compose restart
+   
+   # 本地环境
+   export LOG_LEVEL=DEBUG
+   streamlit run main.py
+   ```
+
+2. **查看详细日志**
+   ```bash
+   # Docker日志
+   docker-compose logs -f --tail=100
+   
+   # 监控指标
+   curl http://localhost:8502/metrics
+   ```
+
+3. **配置验证**
+   ```bash
+   # 验证Docker配置
+   python3 container_config_manager.py
+   
+   # 检查环境变量
+   python3 debug_env.py
+   ```
 
 ## 📚 详细文档
 
