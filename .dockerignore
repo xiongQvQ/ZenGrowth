@@ -166,3 +166,4 @@ integration_example_*.py
 test_*.py
 start_app*.py
 setup.py
+.claude/
