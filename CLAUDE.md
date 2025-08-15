@@ -4,207 +4,239 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a User Behavior Analytics Platform (用户行为分析智能体平台) - a multi-agent AI system built with CrewAI for analyzing Google Analytics 4 (GA4) data. It features a Streamlit web interface, 7 specialized AI agents, and supports both Google Gemini and Volcano ARK LLM providers.
+This is a **User Behavior Analytics Platform** (用户行为分析智能体平台) - a sophisticated multi-agent AI system built with CrewAI for analyzing Google Analytics 4 (GA4) data. It features a comprehensive Streamlit web interface, 7 specialized AI agents, and supports both Google Gemini and Volcano ARK LLM providers with failover capabilities.
 
-## Development Commands
+## Architecture & Design Patterns
 
-### Local Development
+### Core Architecture
+- **Frontend**: Streamlit-based web interface with modular UI components (`ui/`, `pages/`)
+- **Orchestration**: `IntegrationManager` in `system/` provides centralized workflow coordination
+- **Agents**: 7 specialized CrewAI agents (`agents/`) with standalone fallback implementations
+- **Engines**: Simplified analysis engines (`engines/`) as fallback when agents unavailable
+- **Data Processing**: File-based with pandas DataFrames, no database dependency
+- **LLM Integration**: Dual provider support (Google Gemini + Volcano ARK) with circuit breaker pattern
+
+### Key Design Decisions
+- **Agent vs Engine Duality**: System maintains both CrewAI agents and simplified engines for resilience
+- **Memory Model**: In-memory pandas processing for development, scalable to DuckDB for production
+- **Configuration**: JSON-based configs with Pydantic validation, environment variable override
+- **Testing**: Standalone test scripts (no pytest) for rapid iteration and CI integration
+
+## Development Workflow
+
+### Quick Start Commands
 ```bash
-# Quick start (bypass complex setup)
+# Development (recommended)
+./deploy.sh -e development -a up -b
+
+# Production deployment
+./deploy.sh -e production -a up -d
+
+# Local development
 python start_app_direct.py
 
-# Manual start
-streamlit run main.py
-
-# Start with specific port
+# Specific port
 streamlit run main.py --server.port 8502
+```
 
-# Generate test data
-python generate_clean_data.py
-
-# Environment setup
+### Environment Setup
+```bash
+# Create environment
 python setup.py
+
+# Configure API keys in .env
+GOOGLE_API_KEY=your_key
+ARK_API_KEY=your_volcano_key
 ```
 
-### Docker Development
+### Development Patterns
+
+#### Adding New Analysis Features
+1. **Agent Path** (preferred): Create agent in `agents/` with role/goal/backstory
+2. **Engine Path**: Create engine in `engines/` for simplified fallback
+3. **Integration**: Update `IntegrationManager` to include new analysis type
+4. **UI**: Add page in `ui/pages/` and update navigation
+
+#### Testing Strategy
 ```bash
-# Development environment (recommended)
-./deploy.sh -e development -a up -b
-# OR
-docker-compose -f docker-compose.dev.yml up --build
-
-# Production environment
-./deploy.sh -e production -a up -d
-# OR
-docker-compose up -d
-
-# View logs
-./deploy.sh -e development -a logs -f
-docker-compose logs -f
-
-# Stop services
-./deploy.sh -e development -a down
-docker-compose down
-
-# Build Docker image
-./docker-build.sh [tag]
-```
-
-### Testing
-```bash
-# Core functionality tests
-python test_minimal_integration.py
-python test_visualization_only.py
-python test_integration_manager_simple.py
-
-# Individual component tests
-python test_simple_llm.py
-python test_fallback_simple.py
+# Unit tests for individual components
 python test_data_cleaner_simple.py
+python test_simple_llm.py
+
+# Integration tests
+python test_integration_manager_simple.py
+python test_minimal_integration.py
 
 # Agent-specific tests
 python test_event_analysis_agent_standalone.py
 python test_conversion_analysis_agent_standalone.py
 
-# Comprehensive test suite
+# Comprehensive validation
 python test_data_quality_validation.py
 ```
 
-### Health Checks & Diagnostics
+#### Debugging & Diagnostics
 ```bash
-# Basic system diagnostics
-python diagnose.py
+# Health checks
+curl http://localhost:8502/health
+curl http://localhost:8502/health/detailed
 
-# Environment debugging
+# Environment diagnostics
 python debug_env.py
 python debug_providers.py
 
 # Configuration validation
 python container_config_manager.py
 python config_validator.py
-
-# Health endpoint (when running)
-curl http://localhost:8502/health
-curl http://localhost:8502/health/detailed
 ```
 
-## Architecture Overview
+## Key Development Areas
 
-### Multi-Agent System
-The platform uses CrewAI framework with 7 specialized agents:
-- **DataProcessingAgent**: GA4 data parsing and preprocessing
-- **EventAnalysisAgent**: User event patterns and trend analysis
-- **RetentionAnalysisAgent**: User retention and churn analysis  
-- **ConversionAnalysisAgent**: Funnel analysis and bottleneck identification
-- **UserSegmentationAgent**: Behavioral clustering and profiling
-- **PathAnalysisAgent**: User journey and navigation patterns
-- **ReportGenerationAgent**: Comprehensive report compilation
+### 1. Agent Development
+**Location**: `agents/` directory
+- Each agent has integrated version (CrewAI) and standalone version
+- Follow pattern: `AgentName.py` + `AgentName_standalone.py`
+- Use `AGENTS_AVAILABLE` flag in integration_manager.py for graceful degradation
 
-### Core Components
-- **main.py**: Streamlit application entry point with UI and workflow orchestration
-- **system/integration_manager.py**: Central orchestrator managing all agents and engines
-- **engines/**: Analysis engines for different analytics tasks (event, retention, conversion, etc.)
-- **tools/**: Data processing utilities (GA4 parser, validators, storage manager)
-- **config/**: Configuration management, LLM providers, and settings
-- **visualization/**: Chart generation and advanced plotting components
+### 2. Data Processing Pipeline
+**Location**: `tools/` directory
+- `GA4DataParser`: NDJSON parsing with validation
+- `DataStorageManager`: In-memory data management
+- `DataValidator`: Comprehensive data quality checks
 
-### Data Flow
-1. GA4 NDJSON files uploaded via Streamlit UI
-2. `GA4DataParser` processes and validates event data
-3. `DataStorageManager` manages in-memory storage
-4. `IntegrationManager` orchestrates analysis workflow
-5. Agents/Engines perform specialized analysis
-6. Results displayed via `ChartGenerator`/`AdvancedVisualizer`
-7. Reports exported via `ReportExporter`
+### 3. UI Development
+**Location**: `ui/` directory
+- Modular page structure: `pages/` for individual analysis views
+- Component-based design: `components/` for reusable UI elements
+- State management: `state/` for Streamlit session persistence
 
-### LLM Integration
-- Dual provider support: Google Gemini + Volcano ARK
-- Fallback mechanism with configurable order
-- Provider health monitoring and circuit breaker pattern
-- Multimodal content support for image analysis
+### 4. Configuration Management
+**Location**: `config/` directory
+- `settings.py`: Pydantic-based configuration with validation
+- `llm_provider_manager.py`: Dual provider management with failover
+- JSON configs for system and analysis parameters
 
-## Configuration System
+## Performance & Scalability
 
-### Environment Variables (.env)
+### Current Limitations
+- **Memory**: In-memory pandas processing limits dataset size
+- **Scalability**: Single-threaded analysis for complex operations
+- **Storage**: File-based, no database persistence
+
+### Scaling Path
+1. **Short-term**: DuckDB integration for out-of-core processing
+2. **Medium-term**: Async processing with ThreadPoolExecutor
+3. **Long-term**: Database backend with caching layer
+
+## Testing Framework
+
+### Test Categories
 ```bash
-# Required (at least one)
-GOOGLE_API_KEY=your_google_api_key
-ARK_API_KEY=your_volcano_api_key
+# Basic functionality
+python test_basic_setup.py
 
-# LLM Configuration
-DEFAULT_LLM_PROVIDER=volcano|google
-ENABLED_PROVIDERS=["volcano", "google"]
-FALLBACK_ORDER=["volcano", "google"]
+# Component integration
+python test_ga4_parser_integration.py
+python test_storage_integration.py
 
-# Application Settings
-APP_TITLE=用户行为分析智能体平台
-LOG_LEVEL=INFO|DEBUG|WARN|ERROR
-STREAMLIT_SERVER_PORT=8501
+# Agent testing
+python test_event_analysis_agent_standalone.py
+
+# End-to-end
+python test_comprehensive_integration.py
 ```
 
-### Configuration Files
-- **config/system_config.json**: Main system configuration
-- **config/analysis_config.json**: Analysis parameters
-- **config/settings.py**: Pydantic settings with validation
+### Test Data Generation
+```bash
+# Generate clean test data
+python generate_clean_data.py
 
-### Language Settings Issue
-**Known Issue**: Language setting (en-US vs zh-CN) in UI settings doesn't take effect properly.
+# Quick data tests
+python quick_data_test.py
+```
 
-**Root Cause**: 
-- Language selection saved to `config/system_config.json` at `ui_settings.language`
-- UI calls `st.rerun()` after saving but localization isn't implemented
-- Interface remains Chinese regardless of en-US selection
+## Deployment & Operations
 
-**Location**: `main.py:809-884` (language selectbox and save logic)
+### Docker Configuration
+- **Development**: `docker-compose.dev.yml` with hot reload
+- **Production**: `docker-compose.yml` with security policies
+- **Health monitoring**: Built-in health endpoints
 
-**Fix Needed**: Implement proper i18n/localization system that reads `ui_settings.language` and applies appropriate language strings throughout the interface.
+### Resource Requirements
+- **Development**: 4GB RAM, 2GB disk
+- **Production**: 8GB RAM, 10GB disk (for larger datasets)
 
-## Development Patterns
+## Known Issues & Fixes
 
-### Agent Development
-- Agents have both integrated (`agents/`) and standalone (`agents/*_standalone.py`) versions
-- Use `AGENTS_AVAILABLE` flag in `integration_manager.py` for fallback to engines
-- Each agent follows CrewAI Task/Agent pattern with role, goal, and backstory
+### Language Localization Issue
+**Problem**: UI language setting in `config/system_config.json` doesn't affect interface
+**Location**: `main.py:809-884`
+**Fix**: Implement i18n system reading from `ui_settings.language`
 
-### Error Handling
-- Comprehensive try/catch blocks with logging
-- Graceful degradation when components fail
-- Circuit breaker pattern for LLM providers
-- Fallback mechanisms throughout the stack
+### Memory Management
+**Problem**: Large datasets cause OOM errors
+**Current mitigation**: Memory monitoring in `IntegrationManager._monitor_system_metrics`
+**Solution**: Implement chunked processing with DuckDB
 
-### State Management
-- Streamlit session state for UI data persistence
-- `DataStorageManager` for in-memory data storage
-- Configuration persistence via JSON files
-- No database - file-based storage only
+### Test Framework
+**Current**: Standalone scripts
+**Recommended**: Gradual migration to pytest for CI/CD integration
 
-### Testing Approach
-- Standalone test scripts (no pytest framework)
-- Component-level and integration tests
-- Mock data generation for testing
-- Health check validation
+## File Structure Deep Dive
 
-## Key Files to Understand
+```
+├── agents/                  # 7 CrewAI agents + standalone versions
+├── engines/                 # Fallback analysis engines
+├── tools/                   # Data processing utilities
+├── ui/                      # Streamlit interface components
+│   ├── components/          # Reusable UI elements
+│   ├── pages/              # Individual analysis views
+│   ├── layouts/            # Page layouts
+│   └── state/              # Session state management
+├── config/                  # Configuration management
+├── system/                  # Core integration logic
+├── data/                    # File storage for uploads
+├── logs/                    # Application logs
+└── tests/                   # Comprehensive test suite
+```
 
-- **main.py** (2500+ lines): Main Streamlit application with all UI logic
-- **system/integration_manager.py**: Central orchestration and workflow management
-- **config/llm_provider_manager.py**: LLM provider abstraction and fallback logic
-- **config/settings.py**: Configuration validation and environment variable handling
-- **tools/ga4_data_parser.py**: GA4 NDJSON parsing and event extraction
-- **visualization/chart_generator.py**: Core plotting and visualization logic
+## Critical Development Guidelines
 
-## Performance Considerations
+### 1. Never Commit API Keys
+- Use `.env` file for all secrets
+- Validate configuration with `config_validator.py`
 
-- In-memory data processing with pandas DataFrames
-- Thread pool executors for parallel processing
-- Memory monitoring with psutil
-- Chunked data processing for large files
-- LLM response caching to reduce API costs
+### 2. Maintain Agent/Engine Parity
+- When adding new analysis type, implement both agent and engine
+- Ensure feature parity between implementations
 
-## Deployment Notes
+### 3. Memory-Conscious Development
+- Always test with realistic dataset sizes
+- Use `DataStorageManager` cleanup methods
+- Monitor memory usage in development
 
-- Docker Compose setup with development/production profiles
-- Health monitoring endpoints
-- Volume mounts for development hot-reload
-- Kubernetes security policies in `security/`
-- Comprehensive logging to `logs/` directory
+### 4. Error Handling Patterns
+- Use comprehensive try/catch throughout
+- Implement graceful degradation
+- Leverage fallback mechanisms for LLM providers
+
+## Quick Reference Commands
+
+```bash
+# Development flow
+./deploy.sh -e development -a up -b    # Start dev environment
+python test_minimal_integration.py      # Quick validation
+curl http://localhost:8502/health       # Health check
+
+# Production deployment
+./deploy.sh -e production -a up -d
+
+# Troubleshooting
+python diagnose.py                      # System diagnostics
+python debug_env.py                     # Environment issues
+python debug_providers.py               # LLM provider issues
+
+# Testing
+python test_all_fixes_final.py          # Comprehensive test run
+python test_visualization_only.py       # UI-focused testing
+```

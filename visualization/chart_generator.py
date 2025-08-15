@@ -84,164 +84,124 @@ class ChartGenerator:
     
     def create_retention_heatmap(self, data) -> go.Figure:
         """
-        创建留存热力图
+        创建留存热力图 - 简化版本，直接处理标准格式数据
 
         Args:
-            data: 留存数据，可以是DataFrame或字典
+            data: 标准格式的留存数据（DataFrame或RetentionAnalysisResult）
 
         Returns:
             plotly.graph_objects.Figure: 留存热力图
         """
-        # 安全地检查和转换数据
         if data is None:
             return self._create_empty_chart("留存热力图", "暂无留存数据")
 
-        # 如果是字典，尝试转换为DataFrame
-        if isinstance(data, dict):
-            try:
-                # 尝试从字典创建DataFrame
-                if len(data) == 0:
-                    return self._create_empty_chart("留存热力图", "留存数据为空")
-
-                # 处理不同的字典结构
-                if 'cohorts' in data and isinstance(data['cohorts'], list):
-                    # 从cohorts列表创建标准化的DataFrame
+        try:
+            # 处理RetentionAnalysisResult对象
+            if hasattr(data, 'cohorts') and hasattr(data, 'retention_matrix'):
+                if not data.cohorts:
+                    return self._create_empty_chart("留存热力图", "无队列数据")
+                
+                # 使用现有的retention_matrix如果可用
+                if data.retention_matrix is not None and not data.retention_matrix.empty:
+                    heatmap_data = data.retention_matrix
+                else:
+                    # 从cohorts构建标准格式DataFrame
                     cohort_rows = []
-                    for cohort in data['cohorts']:
-                        cohort_period = cohort.get('cohort_period', 'Unknown')
-                        retention_rates = cohort.get('retention_rates', [])
-                        for period_num, rate in enumerate(retention_rates):
+                    for cohort in data.cohorts:
+                        for period_num, rate in enumerate(cohort.retention_rates):
                             cohort_rows.append({
-                                'cohort_group': cohort_period,
+                                'cohort_group': str(cohort.cohort_period),
                                 'period_number': period_num,
-                                'retention_rate': rate
+                                'retention_rate': float(rate)
                             })
-
-                    if cohort_rows:
-                        data = pd.DataFrame(cohort_rows)
-                    else:
+                    if not cohort_rows:
                         return self._create_empty_chart("留存热力图", "队列数据为空")
-
-                elif all(isinstance(v, (list, dict)) for v in data.values()):
-                    # 尝试直接转换，但要处理长度不一致的问题
-                    try:
-                        # 检查所有值的长度
-                        lengths = [len(v) if isinstance(v, (list, dict)) else 1 for v in data.values()]
-                        if len(set(lengths)) > 1:
-                            # 长度不一致，需要特殊处理
-                            max_length = max(lengths)
-                            normalized_data = {}
-                            for key, value in data.items():
-                                if isinstance(value, list):
-                                    # 用None填充到最大长度
-                                    normalized_data[key] = value + [None] * (max_length - len(value))
-                                else:
-                                    normalized_data[key] = value
-                            data = pd.DataFrame(normalized_data)
-                        else:
-                            data = pd.DataFrame(data)
-                    except Exception:
-                        # 如果还是失败，创建示例数据
-                        data = pd.DataFrame([
-                            {'cohort_group': '2024-01', 'period_number': 0, 'retention_rate': 1.0},
-                            {'cohort_group': '2024-01', 'period_number': 1, 'retention_rate': 0.7},
-                            {'cohort_group': '2024-01', 'period_number': 2, 'retention_rate': 0.5}
-                        ])
-                else:
-                    # 创建示例数据结构
-                    data = pd.DataFrame([
-                        {'cohort_group': '2024-01', 'period_number': 0, 'retention_rate': 1.0},
-                        {'cohort_group': '2024-01', 'period_number': 1, 'retention_rate': 0.7},
-                        {'cohort_group': '2024-01', 'period_number': 2, 'retention_rate': 0.5}
-                    ])
-            except Exception as e:
-                return self._create_empty_chart("留存热力图", f"数据转换失败: {str(e)}")
-
-        # 如果是列表，尝试转换为DataFrame
-        elif isinstance(data, list):
-            try:
-                if len(data) == 0:
-                    return self._create_empty_chart("留存热力图", "留存数据列表为空")
-
-                # 检查列表中的数据结构
-                if all(isinstance(item, dict) for item in data):
-                    # 检查字典的键是否一致
-                    all_keys = set()
-                    for item in data:
-                        all_keys.update(item.keys())
-
-                    # 标准化所有字典，确保它们有相同的键
-                    normalized_data = []
-                    for item in data:
-                        normalized_item = {}
-                        for key in all_keys:
-                            normalized_item[key] = item.get(key, None)
-                        normalized_data.append(normalized_item)
-
-                    data = pd.DataFrame(normalized_data)
-                else:
-                    data = pd.DataFrame(data)
-            except Exception as e:
-                return self._create_empty_chart("留存热力图", f"列表转换失败: {str(e)}")
-
-        # 如果是DataFrame，检查是否为空
-        elif isinstance(data, pd.DataFrame):
-            if data.empty:
-                return self._create_empty_chart("留存热力图", "留存数据DataFrame为空")
-
-        # 如果是其他类型，返回错误
-        else:
-            return self._create_empty_chart("留存热力图", f"不支持的数据类型: {type(data)}")
+                    data = pd.DataFrame(cohort_rows)
             
-        # 确保必要的列存在
-        required_columns = ['cohort_group', 'period_number', 'retention_rate']
-        missing_columns = [col for col in required_columns if col not in data.columns]
-        if missing_columns:
-            # 尝试映射常见的列名
+            # 转换为DataFrame并验证
+            if isinstance(data, dict):
+                data = pd.DataFrame(data) if data else pd.DataFrame()
+            elif isinstance(data, list):
+                data = pd.DataFrame(data) if data else pd.DataFrame()
+            
+            if not isinstance(data, pd.DataFrame) or data.empty:
+                return self._create_empty_chart("留存热力图", "数据为空或格式不支持")
+
+            # 标准化列名
             column_mapping = {
                 'cohort': 'cohort_group',
-                'cohort_name': 'cohort_group',
+                'cohort_name': 'cohort_group', 
                 'period': 'period_number',
                 'period_num': 'period_number',
                 'retention': 'retention_rate',
                 'rate': 'retention_rate'
             }
+            data = data.rename(columns=column_mapping)
 
-            for old_name, new_name in column_mapping.items():
-                if old_name in data.columns and new_name in missing_columns:
-                    data = data.rename(columns={old_name: new_name})
-                    missing_columns.remove(new_name)
+            # 确保必要列存在
+            required_cols = ['cohort_group', 'period_number', 'retention_rate']
+            if not all(col in data.columns for col in required_cols):
+                return self._create_empty_chart("留存热力图", f"数据缺少必要列: {required_cols}")
 
-            # 如果还有缺失的列，返回错误
-            if missing_columns:
-                return self._create_empty_chart("留存热力图", f"缺少必要的列: {missing_columns}")
-
-        # 清理数据：移除空值和无效数据
-        data = data.dropna(subset=['cohort_group', 'period_number', 'retention_rate'])
-
-        if data.empty:
-            return self._create_empty_chart("留存热力图", "清理后的数据为空")
-
-        # 确保数据类型正确
-        try:
+            # 清理和转换数据
+            data = data[required_cols].copy()
+            data = data.dropna()
+            
+            # 确保数据类型正确
             data['period_number'] = pd.to_numeric(data['period_number'], errors='coerce')
             data['retention_rate'] = pd.to_numeric(data['retention_rate'], errors='coerce')
-            data = data.dropna()  # 移除转换失败的行
-        except Exception:
-            pass
+            data = data.dropna()
 
-        if data.empty:
-            return self._create_empty_chart("留存热力图", "数据类型转换后为空")
+            if data.empty:
+                return self._create_empty_chart("留存热力图", "无有效留存数据")
 
-        # 创建透视表用于热力图，使用fillna处理缺失值
-        try:
+            # 创建热力图数据
             heatmap_data = data.pivot(
                 index='cohort_group',
-                columns='period_number',
+                columns='period_number', 
                 values='retention_rate'
-            ).fillna(0)  # 用0填充缺失值
+            ).fillna(0.0)
+
+            if heatmap_data.empty:
+                return self._create_empty_chart("留存热力图", "无法生成热力图数据")
+
         except Exception as e:
-            return self._create_empty_chart("留存热力图", f"透视表创建失败: {str(e)}")
+            return self._create_empty_chart("留存热力图", f"数据处理错误: {str(e)}")
+
+        # 创建热力图
+        fig = go.Figure(data=go.Heatmap(
+            z=heatmap_data.values,
+            x=[f'第{i}期' for i in heatmap_data.columns],
+            y=heatmap_data.index,
+            colorscale='RdYlBu_r',
+            zmin=0, zmax=1,
+            hovertemplate='队列: %{y}<br>时期: %{x}<br>留存率: %{z:.1%}<extra></extra>',
+            colorbar=dict(title="留存率", tickformat=".0%")
+        ))
+
+        # 添加数值标签
+        annotations = []
+        for i, cohort in enumerate(heatmap_data.index):
+            for j, period in enumerate(heatmap_data.columns):
+                value = heatmap_data.iloc[i, j]
+                if value > 0:
+                    annotations.append(dict(
+                        x=j, y=i,
+                        text=f'{value:.1%}',
+                        showarrow=False,
+                        font=dict(color='white' if value < 0.5 else 'black', size=10)
+                    ))
+
+        fig.update_layout(
+            title='用户留存热力图',
+            xaxis_title='时期',
+            yaxis_title='用户队列',
+            annotations=annotations,
+            height=400 + len(heatmap_data.index) * 20,
+            template='plotly_white'
+        )
+
+        return fig
         
         # 创建热力图
         fig = go.Figure(data=go.Heatmap(

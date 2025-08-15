@@ -11,19 +11,20 @@ import pandas as pd
 
 from engines.event_analysis_engine import EventAnalysisEngine
 from tools.data_storage_manager import DataStorageManager
+from agents.shared.base_tools import BaseAnalysisTool, EventAnalysisMixin
 
 logger = logging.getLogger(__name__)
 
 
-class EventFrequencyAnalysisTool:
+class EventFrequencyAnalysisTool(BaseAnalysisTool, EventAnalysisMixin):
     """事件频次分析工具"""
     
     def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__(storage_manager, EventAnalysisEngine)
         self.name = "event_frequency_analysis"
         self.description = "分析事件频次统计，包括事件计数、用户分布和频次分布"
-        self.engine = EventAnalysisEngine(storage_manager)
         
-    def _run(self, event_types: Optional[List[str]] = None, date_range: Optional[Tuple[str, str]] = None) -> Dict[str, Any]:
+    def run(self, event_types: Optional[List[str]] = None, date_range: Optional[Tuple[str, str]] = None) -> Dict[str, Any]:
         """
         执行事件频次分析
         
@@ -145,15 +146,15 @@ class EventFrequencyAnalysisTool:
         return insights
 
 
-class EventTrendAnalysisTool:
+class EventTrendAnalysisTool(BaseAnalysisTool, EventAnalysisMixin):
     """事件趋势分析工具"""
     
     def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__(storage_manager, EventAnalysisEngine)
         self.name = "event_trend_analysis"
         self.description = "分析事件趋势，包括增长趋势、季节性模式和异常检测"
-        self.engine = EventAnalysisEngine(storage_manager)
         
-    def _run(self, event_types: Optional[List[str]] = None, time_granularity: str = 'daily') -> Dict[str, Any]:
+    def run(self, event_types: Optional[List[str]] = None, time_granularity: str = 'daily') -> Dict[str, Any]:
         """
         执行事件趋势分析
         
@@ -264,15 +265,15 @@ class EventTrendAnalysisTool:
         return insights
 
 
-class EventCorrelationAnalysisTool:
+class EventCorrelationAnalysisTool(BaseAnalysisTool):
     """事件关联性分析工具"""
     
     def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__(storage_manager, EventAnalysisEngine)
         self.name = "event_correlation_analysis"
         self.description = "分析事件之间的关联性和共现模式"
-        self.engine = EventAnalysisEngine(storage_manager)
         
-    def _run(self, event_types: Optional[List[str]] = None, min_co_occurrence: int = 10) -> Dict[str, Any]:
+    def run(self, event_types: Optional[List[str]] = None, min_co_occurrence: int = 10) -> Dict[str, Any]:
         """
         执行事件关联性分析
         
@@ -380,15 +381,15 @@ class EventCorrelationAnalysisTool:
         return insights
 
 
-class KeyEventIdentificationTool:
+class KeyEventIdentificationTool(BaseAnalysisTool, EventAnalysisMixin):
     """关键事件识别工具"""
     
     def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__(storage_manager, EventAnalysisEngine)
         self.name = "key_event_identification"
         self.description = "识别对用户参与度、转化和留存最重要的关键事件"
-        self.engine = EventAnalysisEngine(storage_manager)
         
-    def _run(self, top_k: int = 10) -> Dict[str, Any]:
+    def run(self, top_k: int = 10) -> Dict[str, Any]:
         """
         执行关键事件识别
         
@@ -398,46 +399,44 @@ class KeyEventIdentificationTool:
         Returns:
             关键事件识别结果
         """
-        try:
-            logger.info(f"开始关键事件识别，返回前{top_k}个关键事件")
-            
-            # 执行关键事件识别
-            key_event_results = self.engine.identify_key_events(top_k=top_k)
-            
-            # 转换结果为可序列化格式
-            serialized_results = []
-            for result in key_event_results:
-                serialized_results.append({
-                    'event_name': result.event_name,
-                    'importance_score': result.importance_score,
-                    'user_engagement_impact': result.user_engagement_impact,
-                    'conversion_impact': result.conversion_impact,
-                    'retention_impact': result.retention_impact,
-                    'reasons': result.reasons
-                })
-            
-            # 生成分析摘要
-            summary = self._generate_key_event_summary(serialized_results)
-            
-            result = {
-                'status': 'success',
-                'analysis_type': 'key_event_identification',
-                'results': serialized_results,
-                'summary': summary,
-                'insights': self._generate_key_event_insights(serialized_results)
-            }
-            
-            logger.info(f"关键事件识别完成，识别了{len(serialized_results)}个关键事件")
-            return result
-            
-        except Exception as e:
-            logger.error(f"关键事件识别失败: {e}")
-            return {
-                'status': 'error',
-                'error_message': str(e),
-                'analysis_type': 'key_event_identification'
-            }
-            
+        return self._execute_analysis(
+            lambda: self._identify_key_events(top_k),
+            "key_event_identification"
+        )
+    
+    def _identify_key_events(self, top_k: int) -> Dict[str, Any]:
+        """内部关键事件识别逻辑"""
+        logger.info(f"开始关键事件识别，返回前{top_k}个关键事件")
+        
+        # 执行关键事件识别
+        key_event_results = self.engine.identify_key_events(top_k=top_k)
+        
+        # 转换结果为可序列化格式
+        serialized_results = []
+        for result in key_event_results:
+            serialized_results.append({
+                'event_name': result.event_name,
+                'importance_score': result.importance_score,
+                'user_engagement_impact': result.user_engagement_impact,
+                'conversion_impact': result.conversion_impact,
+                'retention_impact': result.retention_impact,
+                'reasons': result.reasons
+            })
+        
+        # 生成分析摘要和洞察
+        summary = self._generate_key_event_summary(serialized_results)
+        insights = self._generate_key_event_insights(serialized_results)
+        
+        logger.info(f"关键事件识别完成，识别了{len(serialized_results)}个关键事件")
+        
+        return {
+            'status': 'success',
+            'analysis_type': 'key_event_identification',
+            'results': serialized_results,
+            'summary': summary,
+            'insights': insights
+        }
+    
     def _generate_key_event_summary(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """生成关键事件分析摘要"""
         if not results:

@@ -10,17 +10,16 @@ import pandas as pd
 
 from engines.user_segmentation_engine import UserSegmentationEngine, UserFeatures, UserSegment, SegmentationResult
 from tools.data_storage_manager import DataStorageManager
+from agents.shared.base_tools import BaseAnalysisTool
 
 logger = logging.getLogger(__name__)
 
 
-class UserSegmentationAgentStandalone:
+class UserSegmentationAgentStandalone(BaseAnalysisTool):
     """用户分群智能体独立版本"""
     
     def __init__(self, storage_manager: DataStorageManager = None):
-        """初始化用户分群智能体"""
-        self.storage_manager = storage_manager
-        self.engine = UserSegmentationEngine(storage_manager)
+        super().__init__(storage_manager, UserSegmentationEngine)
         
         logger.info("用户分群智能体(独立版本)初始化完成")
     

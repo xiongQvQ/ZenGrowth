@@ -11,11 +11,12 @@ import pandas as pd
 
 from engines.conversion_analysis_engine import ConversionAnalysisEngine
 from tools.data_storage_manager import DataStorageManager
+from agents.shared.base_tools import BaseAnalysisTool, FunnelAnalysisMixin
 
 logger = logging.getLogger(__name__)
 
 
-class FunnelAnalysisTool:
+class FunnelAnalysisTool(BaseAnalysisTool, FunnelAnalysisMixin):
     """漏斗分析工具"""
     
     def __init__(self, storage_manager: DataStorageManager = None):
@@ -152,14 +153,14 @@ class FunnelAnalysisTool:
         return insights
 
 
-class ConversionRateAnalysisTool:
+class ConversionRateAnalysisTool(BaseAnalysisTool, FunnelAnalysisMixin):
     """转化率分析工具"""
     
     def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__(storage_manager, ConversionAnalysisEngine)
         self.name = "conversion_rate_analysis"
         self.description = "计算各种转化率指标，分析转化趋势和模式"
-        self.engine = ConversionAnalysisEngine(storage_manager)
-        
+    
     def run(self, funnel_definitions: Optional[Dict[str, List[str]]] = None) -> Dict[str, Any]:
         """
         执行转化率分析
@@ -178,7 +179,7 @@ class ConversionRateAnalysisTool:
                 funnel_definitions=funnel_definitions
             )
             
-            # 转换结果为可序列化格式
+            # 使用混入类的方法序列化
             serialized_result = {
                 'funnels': [],
                 'conversion_metrics': conversion_result.conversion_metrics,
@@ -189,109 +190,51 @@ class ConversionRateAnalysisTool:
             
             # 序列化漏斗数据
             for funnel in conversion_result.funnels:
-                serialized_funnel = {
-                    'funnel_name': funnel.funnel_name,
-                    'overall_conversion_rate': funnel.overall_conversion_rate,
-                    'total_users_entered': funnel.total_users_entered,
-                    'total_users_converted': funnel.total_users_converted,
-                    'avg_completion_time': funnel.avg_completion_time,
-                    'bottleneck_step': funnel.bottleneck_step,
-                    'steps': []
-                }
-                
-                for step in funnel.steps:
-                    serialized_funnel['steps'].append({
-                        'step_name': step.step_name,
-                        'step_order': step.step_order,
-                        'total_users': step.total_users,
-                        'conversion_rate': step.conversion_rate,
-                        'drop_off_rate': step.drop_off_rate
-                    })
-                    
+                serialized_funnel = self._serialize_funnel(funnel)
                 serialized_result['funnels'].append(serialized_funnel)
             
-            # 生成分析摘要
-            summary = self._generate_conversion_summary(serialized_result)
+            # 使用混入类的方法生成摘要
+            summary = {
+                'total_funnels_analyzed': len(serialized_result['funnels']),
+                'avg_conversion_rate': sum(f['overall_conversion_rate'] for f in serialized_result['funnels']) / len(serialized_result['funnels']) if serialized_result['funnels'] else 0,
+                'best_performing_funnel': max(serialized_result['funnels'], key=lambda x: x['overall_conversion_rate'])['funnel_name'] if serialized_result['funnels'] else None,
+                'worst_performing_funnel': min(serialized_result['funnels'], key=lambda x: x['overall_conversion_rate'])['funnel_name'] if serialized_result['funnels'] else None,
+                'funnels_with_bottlenecks': sum(1 for f in serialized_result['funnels'] if f['bottleneck_step']),
+                'overall_conversion_metrics': conversion_result.conversion_metrics
+            }
+            
+            # 使用混入类的方法生成洞察
+            insights = []
+            funnels = serialized_result['funnels']
+            
+            if funnels:
+                best_funnel = max(funnels, key=lambda x: x['overall_conversion_rate'])
+                worst_funnel = min(funnels, key=lambda x: x['overall_conversion_rate'])
+                insights.append(f"最佳转化漏斗: {best_funnel['funnel_name']} ({best_funnel['overall_conversion_rate']:.1%})")
+                insights.append(f"最差转化漏斗: {worst_funnel['funnel_name']} ({worst_funnel['overall_conversion_rate']:.1%})")
             
             result = {
                 'status': 'success',
                 'analysis_type': 'conversion_rate_analysis',
                 'results': serialized_result,
                 'summary': summary,
-                'insights': self._generate_conversion_insights(serialized_result)
+                'insights': insights
             }
             
             logger.info(f"转化率分析完成，分析了{len(serialized_result['funnels'])}个漏斗")
             return result
             
         except Exception as e:
-            logger.error(f"转化率分析失败: {e}")
-            return {
-                'status': 'error',
-                'error_message': str(e),
-                'analysis_type': 'conversion_rate_analysis'
-            }
-            
-    def _generate_conversion_summary(self, results: Dict[str, Any]) -> Dict[str, Any]:
-        """生成转化率分析摘要"""
-        funnels = results.get('funnels', [])
-        metrics = results.get('conversion_metrics', {})
-        
-        if not funnels:
-            return {'total_funnels': 0}
-            
-        # 计算漏斗统计
-        conversion_rates = [f['overall_conversion_rate'] for f in funnels]
-        
-        return {
-            'total_funnels_analyzed': len(funnels),
-            'avg_conversion_rate': sum(conversion_rates) / len(conversion_rates),
-            'best_performing_funnel': max(funnels, key=lambda x: x['overall_conversion_rate'])['funnel_name'],
-            'worst_performing_funnel': min(funnels, key=lambda x: x['overall_conversion_rate'])['funnel_name'],
-            'funnels_with_bottlenecks': sum(1 for f in funnels if f['bottleneck_step']),
-            'overall_conversion_metrics': metrics
-        }
-        
-    def _generate_conversion_insights(self, results: Dict[str, Any]) -> List[str]:
-        """生成转化率分析洞察"""
-        insights = []
-        funnels = results.get('funnels', [])
-        bottleneck_analysis = results.get('bottleneck_analysis', {})
-        
-        if not funnels:
-            return ["没有足够的转化数据进行分析"]
-            
-        # 分析最佳和最差漏斗
-        best_funnel = max(funnels, key=lambda x: x['overall_conversion_rate'])
-        worst_funnel = min(funnels, key=lambda x: x['overall_conversion_rate'])
-        
-        insights.append(f"最佳转化漏斗: {best_funnel['funnel_name']} ({best_funnel['overall_conversion_rate']:.1%})")
-        insights.append(f"最差转化漏斗: {worst_funnel['funnel_name']} ({worst_funnel['overall_conversion_rate']:.1%})")
-        
-        # 分析常见瓶颈
-        common_bottlenecks = bottleneck_analysis.get('common_bottlenecks', [])
-        if common_bottlenecks:
-            top_bottleneck = common_bottlenecks[0]
-            insights.append(f"最常见瓶颈步骤: {top_bottleneck['step']} (出现在{top_bottleneck['frequency']}个漏斗中)")
-            
-        # 分析转化率分布
-        conversion_rates = [f['overall_conversion_rate'] for f in funnels]
-        avg_rate = sum(conversion_rates) / len(conversion_rates)
-        
-        high_performing = [f for f in funnels if f['overall_conversion_rate'] > avg_rate * 1.5]
-        if high_performing:
-            insights.append(f"高性能漏斗({len(high_performing)}个)平均转化率超过整体平均值50%")
-            
-        return insights
+            return self._handle_error("转化率分析", e)
 
 
-class BottleneckIdentificationTool:
+class BottleneckIdentificationTool(BaseAnalysisTool):
     """瓶颈识别工具"""
     
     def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__(storage_manager, ConversionAnalysisEngine)
         self.name = "bottleneck_identification"
         self.description = "识别转化路径中的瓶颈和流失点，提供优化建议"
-        self.engine = ConversionAnalysisEngine(storage_manager)
         
     def run(self, funnel_steps: List[str] = None) -> Dict[str, Any]:
         """
@@ -327,12 +270,7 @@ class BottleneckIdentificationTool:
             return result
             
         except Exception as e:
-            logger.error(f"瓶颈识别失败: {e}")
-            return {
-                'status': 'error',
-                'error_message': str(e),
-                'analysis_type': 'bottleneck_identification'
-            }
+            return self._handle_error("瓶颈识别", e)
             
     def _generate_bottleneck_summary(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
         """生成瓶颈分析摘要"""
@@ -389,13 +327,13 @@ class BottleneckIdentificationTool:
         return recommendations
 
 
-class ConversionPathAnalysisTool:
+class ConversionPathAnalysisTool(BaseAnalysisTool, FunnelAnalysisMixin):
     """转化路径分析工具"""
     
     def __init__(self, storage_manager: DataStorageManager = None):
+        super().__init__(storage_manager, ConversionAnalysisEngine)
         self.name = "conversion_path_analysis"
         self.description = "分析用户转化路径，识别最优转化路径和异常路径"
-        self.engine = ConversionAnalysisEngine(storage_manager)
         
     def run(self, funnel_steps: List[str], time_window_hours: int = 24) -> Dict[str, Any]:
         """
@@ -417,8 +355,11 @@ class ConversionPathAnalysisTool:
                 time_window_hours=time_window_hours
             )
             
+            # 使用混入类的方法序列化
+            serialized_funnel = self._serialize_funnel(funnel)
+            
             # 分析路径模式
-            path_analysis = self._analyze_conversion_paths(funnel)
+            path_analysis = self._analyze_conversion_paths(serialized_funnel)
             
             result = {
                 'status': 'success',
@@ -431,23 +372,18 @@ class ConversionPathAnalysisTool:
             return result
             
         except Exception as e:
-            logger.error(f"转化路径分析失败: {e}")
-            return {
-                'status': 'error',
-                'error_message': str(e),
-                'analysis_type': 'conversion_path_analysis'
-            }
+            return self._handle_error("转化路径分析", e)
             
-    def _analyze_conversion_paths(self, funnel) -> Dict[str, Any]:
+    def _analyze_conversion_paths(self, funnel: Dict[str, Any]) -> Dict[str, Any]:
         """分析转化路径"""
         return {
             'optimal_path': {
-                'steps': [step.step_name for step in funnel.steps],
-                'conversion_rate': funnel.overall_conversion_rate,
-                'avg_completion_time': funnel.avg_completion_time
+                'steps': [step['step_name'] for step in funnel['steps']],
+                'conversion_rate': funnel['overall_conversion_rate'],
+                'avg_completion_time': funnel['avg_completion_time']
             },
             'path_variations': [],
-            'common_exit_points': [funnel.bottleneck_step] if funnel.bottleneck_step else []
+            'common_exit_points': [funnel['bottleneck_step']] if funnel['bottleneck_step'] else []
         }
         
     def _generate_path_insights(self, analysis: Dict[str, Any]) -> List[str]:
