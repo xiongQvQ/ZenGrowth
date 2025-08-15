@@ -174,6 +174,8 @@ class StateManager:
             analysis_state.conversion_results = results
         elif analysis_type == "segmentation":
             analysis_state.segmentation_results = results
+        elif analysis_type == "user_segmentation":
+            analysis_state.segmentation_results = results
         elif analysis_type == "path":
             analysis_state.path_results = results
         elif analysis_type == "workflow":
@@ -194,6 +196,8 @@ class StateManager:
         elif analysis_type == "conversion":
             return analysis_state.conversion_results
         elif analysis_type == "segmentation":
+            return analysis_state.segmentation_results
+        elif analysis_type == "user_segmentation":
             return analysis_state.segmentation_results
         elif analysis_type == "path":
             return analysis_state.path_results

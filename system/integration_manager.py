@@ -664,9 +664,19 @@ class IntegrationManager:
         events_data = self.storage_manager.get_events()
         if not events_data.empty:
             try:
+                event_timeline_chart = self.chart_generator.create_event_timeline(events_data)
+                event_distribution_chart = self.chart_generator.create_event_distribution_chart(events_data)
                 visualizations = {
-                    'event_timeline': self.chart_generator.create_event_timeline(events_data),
-                    'event_distribution': self.chart_generator.create_event_distribution_chart(events_data)
+                    'event_timeline': {
+                        'chart': event_timeline_chart,
+                        'type': 'timeline',
+                        'title': '事件时间线'
+                    },
+                    'event_distribution': {
+                        'chart': event_distribution_chart,
+                        'type': 'pie',
+                        'title': '事件分布'
+                    }
                 }
                 result['visualizations'] = visualizations
             except Exception as e:
@@ -717,8 +727,14 @@ class IntegrationManager:
                 missing_columns = [col for col in required_columns if col not in retention_viz_data.columns]
                 
                 if not missing_columns:
+                    # 生成热力图并包装成正确的格式
+                    heatmap_chart = self.advanced_visualizer.create_retention_heatmap(retention_viz_data)
                     visualizations = {
-                        'retention_heatmap': self.advanced_visualizer.create_retention_heatmap(retention_viz_data)
+                        'retention_heatmap': {
+                            'chart': heatmap_chart,
+                            'type': 'heatmap',
+                            'title': '留存分析热力图'
+                        }
                     }
                     result['visualizations'] = visualizations
                 else:
@@ -770,9 +786,19 @@ class IntegrationManager:
             # 从分析结果中提取转化数据并转换为可视化格式
             conversion_viz_data = self._transform_conversion_data_for_visualization(result)
             if not conversion_viz_data.empty:
+                funnel_chart = self.chart_generator.create_funnel_chart(conversion_viz_data)
+                trends_chart = self.chart_generator.create_event_timeline(self.storage_manager.get_events())
                 visualizations = {
-                    'conversion_funnel': self.chart_generator.create_funnel_chart(conversion_viz_data),
-                    'conversion_trends': self.chart_generator.create_event_timeline(self.storage_manager.get_events())
+                    'conversion_funnel': {
+                        'chart': funnel_chart,
+                        'type': 'funnel',
+                        'title': '转化漏斗'
+                    },
+                    'conversion_trends': {
+                        'chart': trends_chart,
+                        'type': 'timeline',
+                        'title': '转化趋势'
+                    }
                 }
                 result['visualizations'] = visualizations
             else:
@@ -820,9 +846,19 @@ class IntegrationManager:
         users_data = self.storage_manager.get_users()
         if not users_data.empty:
             try:
+                segments_chart = self.advanced_visualizer.create_user_segmentation_scatter(users_data)
+                comparison_chart = self.advanced_visualizer.create_feature_radar_chart(users_data)
                 visualizations = {
-                    'user_segments': self.advanced_visualizer.create_user_segmentation_scatter(users_data),
-                    'segment_comparison': self.advanced_visualizer.create_feature_radar_chart(users_data)
+                    'user_segments': {
+                        'chart': segments_chart,
+                        'type': 'scatter',
+                        'title': '用户分群'
+                    },
+                    'segment_comparison': {
+                        'chart': comparison_chart,
+                        'type': 'radar',
+                        'title': '分群对比'
+                    }
                 }
                 result['visualizations'] = visualizations
             except Exception as e:
@@ -875,14 +911,24 @@ class IntegrationManager:
                     # 创建简单的用户流程数据
                     flow_data = self._create_flow_data_from_sessions(sessions_data)
                     if not flow_data.empty:
-                        visualizations['user_flow'] = self.advanced_visualizer.create_user_behavior_flow(flow_data)
+                        flow_chart = self.advanced_visualizer.create_user_behavior_flow(flow_data)
+                        visualizations['user_flow'] = {
+                            'chart': flow_chart,
+                            'type': 'sankey',
+                            'title': '用户行为流'
+                        }
 
                 # 检查是否有足够的数据生成路径分析
                 if len(sessions_data) > 1:
                     # 创建简单的路径数据
                     path_data = self._create_path_data_from_sessions(sessions_data)
                     if not path_data.empty:
-                        visualizations['path_analysis'] = self.advanced_visualizer.create_path_analysis_network(path_data)
+                        path_chart = self.advanced_visualizer.create_path_analysis_network(path_data)
+                        visualizations['path_analysis'] = {
+                            'chart': path_chart,
+                            'type': 'network',
+                            'title': '路径分析网络'
+                        }
 
                 result['visualizations'] = visualizations
             except Exception as e:
