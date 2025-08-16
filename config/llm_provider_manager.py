@@ -943,9 +943,12 @@ _provider_manager: Optional[LLMProviderManager] = None
 _manager_lock = Lock()
 
 
+import streamlit as st
+
+@st.cache_resource
 def get_provider_manager() -> LLMProviderManager:
     """
-    获取全局提供商管理器实例（单例模式）
+    获取全局提供商管理器实例（单例模式） - 带Streamlit缓存优化
     
     Returns:
         提供商管理器实例

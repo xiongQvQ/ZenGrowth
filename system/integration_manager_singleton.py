@@ -163,10 +163,13 @@ class LazyIntegrationManager:
         return self._lazy_initialized and self._instance is not None
 
 
+import streamlit as st
+
+@st.cache_resource
 def get_integration_manager(config: Optional[WorkflowConfig] = None, 
                           lazy_loading: bool = True) -> IntegrationManager:
     """
-    获取IntegrationManager实例的便捷函数
+    获取IntegrationManager实例的便捷函数 - 带Streamlit缓存优化
     
     Args:
         config: 配置对象

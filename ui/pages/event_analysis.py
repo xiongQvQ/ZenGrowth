@@ -1,6 +1,6 @@
 """
-事件分析页面组件
-处理用户事件数据的分析和可视化
+Event Analysis Page Component
+Handles analysis and visualization of user event data
 """
 
 import streamlit as st
@@ -15,7 +15,7 @@ from utils.i18n import t
 from ui.components.common import render_no_data_warning
 
 
-# 时间粒度映射（与main.py保持一致）
+# Time granularity mapping (consistent with main.py)
 TIME_GRANULARITY_MAPPING = {
     "日": "daily",
     "周": "weekly", 
@@ -30,58 +30,58 @@ TIME_GRANULARITY_MAPPING = {
 
 
 def translate_time_granularity(chinese_term: str) -> str:
-    """将中文时间粒度转换为英文"""
+    """Translate Chinese time granularity to English"""
     return TIME_GRANULARITY_MAPPING.get(chinese_term, chinese_term)
 
 
 class EventAnalysisPage:
-    """事件分析页面类"""
+    """Event Analysis Page Class"""
     
     def __init__(self):
         self._initialize_engines()
     
     def _initialize_engines(self):
-        """初始化分析引擎和可视化组件"""
+        """Initialize analysis engines and visualization components"""
         if 'event_engine' not in st.session_state:
             st.session_state.event_engine = EventAnalysisEngine()
         if 'chart_generator' not in st.session_state:
             st.session_state.chart_generator = ChartGenerator()
     
     def render(self):
-        """渲染事件分析页面"""
+        """Render event analysis page"""
         from ui.state import get_state_manager
         
-        # 检查数据状态
+        # Check data status
         state_manager = get_state_manager()
         if not state_manager.is_data_loaded():
             render_no_data_warning()
             return
         
-        st.header(t('analysis.event_title'))
+        st.header(t('analysis.event_title', 'Event Analysis'))
         
-        # 分析控制面板
+        # Analysis control panel
         config = self._render_analysis_config()
         
-        # 执行分析按钮
-        if st.button(t('analysis.start_event_analysis'), type="primary"):
+        # Execute analysis button
+        if st.button(t('analysis.start_event_analysis', 'Start Event Analysis'), type="primary"):
             self._execute_analysis(config)
         
-        # 显示分析结果
+        # Display analysis results
         if 'event_analysis_results' in st.session_state:
             self._render_analysis_results()
     
     def _render_analysis_config(self) -> Dict[str, Any]:
-        """渲染分析配置面板"""
+        """Render analysis configuration panel"""
         from ui.state import get_state_manager
         
-        with st.expander(t('analysis.analysis_config_expander'), expanded=False):
+        with st.expander(t('analysis.analysis_config_expander', 'Analysis Configuration'), expanded=False):
             col1, col2, col3 = st.columns(3)
             
             with col1:
                 date_range = st.date_input(
-                    t('analysis.time_range_label'),
+                    t('analysis.time_range_label', 'Time Range'),
                     value=(datetime.now() - timedelta(days=30), datetime.now()),
-                    help=t('analysis.time_range_help')
+                    help=t('analysis.time_range_help', 'Select the time period for analysis')
                 )
             
             with col2:
@@ -89,18 +89,18 @@ class EventAnalysisPage:
                 data_summary = state_manager.get_data_summary()
                 event_types = list(data_summary.get('event_types', {}).keys()) if data_summary else []
                 event_filter = st.multiselect(
-                    t('analysis.event_filter_label'),
+                    t('analysis.event_filter_label', 'Event Filter'),
                     options=event_types,
                     default=event_types[:5] if event_types else [],
-                    help=t('analysis.event_filter_help')
+                    help=t('analysis.event_filter_help', 'Select event types to include in analysis')
                 )
             
             with col3:
                 analysis_granularity = st.selectbox(
-                    t('analysis.analysis_granularity_label'),
-                    options=[t('analysis.daily'), t('analysis.weekly'), t('analysis.monthly')],
+                    t('analysis.analysis_granularity_label', 'Analysis Granularity'),
+                    options=[t('analysis.daily', 'Daily'), t('analysis.weekly', 'Weekly'), t('analysis.monthly', 'Monthly')],
                     index=0,
-                    help=t('analysis.analysis_granularity_help')
+                    help=t('analysis.analysis_granularity_help', 'Choose the time granularity for trend analysis')
                 )
         
         return {
@@ -110,29 +110,29 @@ class EventAnalysisPage:
         }
     
     def _execute_analysis(self, config: Dict[str, Any]):
-        """执行事件分析"""
+        """Execute event analysis"""
         from ui.state import get_state_manager
         
-        with st.spinner(t('analysis.event_analysis_processing')):
+        with st.spinner(t('analysis.event_analysis_processing', 'Processing event analysis...')):
             try:
-                # 获取数据
+                # Get data
                 state_manager = get_state_manager()
                 raw_data = state_manager.get_raw_data()
                 
-                # 应用筛选条件
+                # Apply filters
                 filtered_data = self._filter_data(raw_data, config)
                 
-                # 执行分析
+                # Execute analysis
                 engine = st.session_state.event_engine
                 
-                # 事件频次分析
+                # Event frequency analysis
                 frequency_results = engine.analyze_event_frequency(filtered_data)
                 
-                # 事件趋势分析 - 转换中文粒度为英文
+                # Event trend analysis - convert Chinese granularity to English
                 english_granularity = translate_time_granularity(config['analysis_granularity'])
                 trend_results = engine.analyze_event_trends(filtered_data, time_granularity=english_granularity)
                 
-                # 存储分析结果
+                # Store analysis results
                 st.session_state.event_analysis_results = {
                     'frequency': frequency_results,
                     'trends': trend_results,
@@ -140,120 +140,120 @@ class EventAnalysisPage:
                     'config': config
                 }
                 
-                st.success(t('analysis.event_analysis_complete'))
+                st.success(t('analysis.event_analysis_complete', 'Event analysis completed successfully!'))
                 
             except Exception as e:
-                st.error(f"{t('analysis.analysis_failed')}: {str(e)}")
+                st.error(f"{t('analysis.analysis_failed', 'Analysis failed')}: {str(e)}")
     
     def _filter_data(self, raw_data: pd.DataFrame, config: Dict[str, Any]) -> pd.DataFrame:
-        """根据配置筛选数据"""
+        """Filter data based on configuration"""
         filtered_data = raw_data.copy()
         
-        # 事件类型筛选
+        # Event type filtering
         if config['event_filter']:
             filtered_data = filtered_data[filtered_data['event_name'].isin(config['event_filter'])]
         
-        # 时间范围筛选（如需要）
-        # 这里可以添加时间范围筛选逻辑
+        # Time range filtering (if needed)
+        # Time range filtering logic can be added here
         
         return filtered_data
     
     def _render_analysis_results(self):
-        """渲染分析结果"""
+        """Render analysis results"""
         if 'event_analysis_results' not in st.session_state:
-            st.warning("没有找到分析结果，请先执行事件分析")
+            st.warning(t('errors.no_analysis_results', 'No analysis results found. Please run analysis first.'))
             return
             
         results = st.session_state.event_analysis_results
         chart_gen = st.session_state.chart_generator
         
-        # 验证results结构
+        # Validate results structure
         if not isinstance(results, dict):
-            st.error("分析结果格式错误，请重新执行分析")
+            st.error(t('errors.analysis_result_format_error', 'Invalid analysis result format'))
             return
         
         st.markdown("---")
-        st.subheader(t('analysis.analysis_results_header'))
+        st.subheader(t('analysis.analysis_results_header', 'Analysis Results'))
         
-        # 关键指标概览
+        # Key metrics overview
         self._render_key_metrics(results)
         
-        # 事件时间线图表
+        # Event timeline chart
         self._render_timeline_chart(results, chart_gen)
         
-        # 事件频次分布和用户活跃度分布
+        # Event frequency distribution and user activity distribution
         self._render_distribution_charts(results)
         
-        # 详细数据表
+        # Detailed data table
         self._render_detailed_data(results)
     
     def _render_key_metrics(self, results: Dict[str, Any]):
-        """渲染关键指标"""
+        """Render key metrics"""
         col1, col2, col3, col4 = st.columns(4)
         
-        # 防御性检查，确保filtered_data存在
+        # Defensive check to ensure filtered_data exists
         if 'filtered_data' not in results:
-            st.error("分析结果中缺少过滤数据，请重新执行分析")
+            st.error(t('errors.filter_data_missing', 'Filtered data is missing from results'))
             return
             
         filtered_data = results['filtered_data']
         
         with col1:
             total_events = len(filtered_data)
-            st.metric(t('analysis.total_events'), f"{total_events:,}")
+            st.metric(t('analysis.total_events', 'Total Events'), f"{total_events:,}")
         
         with col2:
             unique_users = filtered_data['user_pseudo_id'].nunique()
-            st.metric(t('analysis.active_users'), f"{unique_users:,}")
+            st.metric(t('analysis.active_users', 'Active Users'), f"{unique_users:,}")
         
         with col3:
             avg_events_per_user = total_events / unique_users if unique_users > 0 else 0
-            st.metric(t('analysis.avg_events_per_user'), f"{avg_events_per_user:.1f}")
+            st.metric(t('analysis.avg_events_per_user', 'Avg Events per User'), f"{avg_events_per_user:.1f}")
         
         with col4:
             event_types = filtered_data['event_name'].nunique()
-            st.metric(t('analysis.event_types_count'), f"{event_types}")
+            st.metric(t('analysis.event_types_count', 'Event Types'), f"{event_types}")
     
     def _render_timeline_chart(self, results: Dict[str, Any], chart_gen: ChartGenerator):
-        """渲染时间线图表"""
-        st.subheader(t('analysis.event_timeline'))
+        """Render timeline chart"""
+        st.subheader(t('analysis.event_timeline', 'Event Timeline'))
         
-        # 防御性检查，确保filtered_data存在
+        # Defensive check to ensure filtered_data exists
         if 'filtered_data' not in results:
-            st.error("分析结果中缺少过滤数据，无法生成时间线图表")
+            st.error(t('errors.timeline_chart_failed', 'Failed to render timeline chart'))
             return
             
         try:
             timeline_chart = chart_gen.create_event_timeline(results['filtered_data'])
             st.plotly_chart(timeline_chart, use_container_width=True)
         except Exception as e:
-            st.error(f"{t('analysis.timeline_chart_failed')}: {str(e)}")
+            st.error(f"{t('analysis.timeline_chart_failed', 'Timeline chart failed')}: {str(e)}")
     
     def _render_distribution_charts(self, results: Dict[str, Any]):
-        """渲染分布图表"""
+        """Render distribution charts"""
         col1, col2 = st.columns(2)
         
-        # 防御性检查，确保filtered_data存在
+        # Defensive check to ensure filtered_data exists
         if 'filtered_data' not in results:
-            st.error("分析结果中缺少过滤数据，无法生成分布图表")
+            st.error(t('errors.distribution_chart_failed', 'Failed to render distribution charts'))
             return
             
         filtered_data = results['filtered_data']
         
         with col1:
-            st.subheader(t('analysis.event_frequency_distribution'))
+            st.subheader(t('analysis.event_frequency_distribution', 'Event Frequency Distribution'))
             event_counts = filtered_data['event_name'].value_counts()
             st.bar_chart(event_counts)
         
         with col2:
-            st.subheader(t('analysis.user_activity_distribution'))
+            st.subheader(t('analysis.user_activity_distribution', 'User Activity Distribution'))
             self._render_user_activity_histogram(filtered_data)
     
     def _render_user_activity_histogram(self, filtered_data: pd.DataFrame):
-        """渲染用户活跃度直方图"""
+        """Render user activity histogram"""
         user_activity = filtered_data.groupby('user_pseudo_id').size()
         
-        # 创建用户活跃度分布直方图
+        # Create user activity distribution histogram
         activity_df = pd.DataFrame({
             'user_id': user_activity.index,
             'event_count': user_activity.values
@@ -263,28 +263,28 @@ class EventAnalysisPage:
             activity_df,
             x='event_count',
             nbins=20,
-            title=t('analysis.user_event_count_distribution'),
-            labels={'event_count': t('analysis.event_count'), 'count': t('analysis.user_count')}
+            title=t('analysis.user_event_count_distribution', 'User Event Count Distribution'),
+            labels={'event_count': t('analysis.event_count', 'Event Count'), 'count': t('analysis.user_count', 'User Count')}
         )
         fig.update_layout(
-            xaxis_title=t('analysis.event_count'),
-            yaxis_title=t('analysis.user_count'),
+            xaxis_title=t('analysis.event_count', 'Event Count'),
+            yaxis_title=t('analysis.user_count', 'User Count'),
             showlegend=False
         )
         st.plotly_chart(fig, use_container_width=True)
     
     def _render_detailed_data(self, results: Dict[str, Any]):
-        """渲染详细数据表"""
-        with st.expander(t('analysis.detailed_data'), expanded=False):
-            # 防御性检查，确保filtered_data存在
+        """Render detailed data table"""
+        with st.expander(t('analysis.detailed_data', 'Detailed Data'), expanded=False):
+            # Defensive check to ensure filtered_data exists
             if 'filtered_data' not in results:
-                st.error("分析结果中缺少过滤数据，无法显示详细数据表")
+                st.error(t('errors.detailed_data_failed', 'Failed to render detailed data'))
                 return
                 
             filtered_data = results['filtered_data']
             display_columns = ['event_date', 'event_name', 'user_pseudo_id', 'platform']
             
-            # 确保列存在
+            # Ensure columns exist
             available_columns = [col for col in display_columns if col in filtered_data.columns]
             
             st.dataframe(
@@ -294,6 +294,6 @@ class EventAnalysisPage:
 
 
 def show_event_analysis_page():
-    """事件分析页面入口函数 - 保持向后兼容"""
+    """Event analysis page entry function - maintain backward compatibility"""
     page = EventAnalysisPage()
     page.render()

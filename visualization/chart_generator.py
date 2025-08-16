@@ -10,6 +10,7 @@ from plotly.subplots import make_subplots
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import numpy as np
+from utils.i18n import t
 
 
 class ChartGenerator:
@@ -33,7 +34,10 @@ class ChartGenerator:
             plotly.graph_objects.Figure: 事件时间线图表
         """
         if data.empty:
-            return self._create_empty_chart("事件时间线图表", "暂无事件数据")
+            return self._create_empty_chart(
+                t('charts.event_timeline_title', 'Event Timeline Chart'), 
+                t('charts.no_event_data', 'No event data available')
+            )
             
         # 确保必要的列存在
         required_columns = ['event_name', 'event_timestamp', 'event_date']
@@ -64,16 +68,16 @@ class ChartGenerator:
                 name=event_type,
                 line=dict(color=self.default_colors[i % len(self.default_colors)]),
                 hovertemplate=f'<b>{event_type}</b><br>' +
-                             '日期: %{x}<br>' +
-                             '事件数量: %{y}<br>' +
+                             f'{t("charts.date_label", "Date")}: %{{x}}<br>' +
+                             f'{t("charts.event_count_label", "Event Count")}: %{{y}}<br>' +
                              '<extra></extra>'
             ))
         
         # 设置图表布局
         fig.update_layout(
-            title='事件时间线分析',
-            xaxis_title='日期',
-            yaxis_title='事件数量',
+            title=t('charts.event_timeline_title', 'Event Timeline Analysis'),
+            xaxis_title=t('charts.date_label', 'Date'),
+            yaxis_title=t('charts.event_count_label', 'Event Count'),
             hovermode='x unified',
             showlegend=True,
             height=500,
@@ -93,13 +97,19 @@ class ChartGenerator:
             plotly.graph_objects.Figure: 留存热力图
         """
         if data is None:
-            return self._create_empty_chart("留存热力图", "暂无留存数据")
+            return self._create_empty_chart(
+                t('charts.retention_heatmap_title', 'Retention Heatmap'), 
+                t('charts.no_retention_data', 'No retention data available')
+            )
 
         try:
             # 处理RetentionAnalysisResult对象
             if hasattr(data, 'cohorts') and hasattr(data, 'retention_matrix'):
                 if not data.cohorts:
-                    return self._create_empty_chart("留存热力图", "无队列数据")
+                    return self._create_empty_chart(
+                        t('charts.retention_heatmap_title', 'Retention Heatmap'), 
+                        t('charts.no_cohort_data', 'No cohort data available')
+                    )
                 
                 # 使用现有的retention_matrix如果可用
                 if data.retention_matrix is not None and not data.retention_matrix.empty:
@@ -115,7 +125,10 @@ class ChartGenerator:
                                 'retention_rate': float(rate)
                             })
                     if not cohort_rows:
-                        return self._create_empty_chart("留存热力图", "队列数据为空")
+                        return self._create_empty_chart(
+                            t('charts.retention_heatmap_title', 'Retention Heatmap'), 
+                            t('charts.empty_cohort_data', 'Cohort data is empty')
+                        )
                     data = pd.DataFrame(cohort_rows)
             
             # 转换为DataFrame并验证
@@ -125,7 +138,10 @@ class ChartGenerator:
                 data = pd.DataFrame(data) if data else pd.DataFrame()
             
             if not isinstance(data, pd.DataFrame) or data.empty:
-                return self._create_empty_chart("留存热力图", "数据为空或格式不支持")
+                return self._create_empty_chart(
+                    t('charts.retention_heatmap_title', 'Retention Heatmap'), 
+                    t('charts.data_empty_or_unsupported', 'Data is empty or format not supported')
+                )
 
             # 标准化列名
             column_mapping = {
@@ -141,7 +157,10 @@ class ChartGenerator:
             # 确保必要列存在
             required_cols = ['cohort_group', 'period_number', 'retention_rate']
             if not all(col in data.columns for col in required_cols):
-                return self._create_empty_chart("留存热力图", f"数据缺少必要列: {required_cols}")
+                return self._create_empty_chart(
+                    t('charts.retention_heatmap_title', 'Retention Heatmap'), 
+                    f"{t('charts.missing_required_columns', 'Missing required columns')}: {required_cols}"
+                )
 
             # 清理和转换数据
             data = data[required_cols].copy()
@@ -153,7 +172,10 @@ class ChartGenerator:
             data = data.dropna()
 
             if data.empty:
-                return self._create_empty_chart("留存热力图", "无有效留存数据")
+                return self._create_empty_chart(
+                    t('charts.retention_heatmap_title', 'Retention Heatmap'), 
+                    t('charts.no_valid_retention_data', 'No valid retention data')
+                )
 
             # 创建热力图数据
             heatmap_data = data.pivot(
@@ -163,20 +185,29 @@ class ChartGenerator:
             ).fillna(0.0)
 
             if heatmap_data.empty:
-                return self._create_empty_chart("留存热力图", "无法生成热力图数据")
+                return self._create_empty_chart(
+                    t('charts.retention_heatmap_title', 'Retention Heatmap'), 
+                    t('charts.cannot_generate_heatmap', 'Cannot generate heatmap data')
+                )
 
         except Exception as e:
-            return self._create_empty_chart("留存热力图", f"数据处理错误: {str(e)}")
+            return self._create_empty_chart(
+                t('charts.retention_heatmap_title', 'Retention Heatmap'), 
+                f"{t('charts.data_processing_error', 'Data processing error')}: {str(e)}"
+            )
 
         # 创建热力图
         fig = go.Figure(data=go.Heatmap(
             z=heatmap_data.values,
-            x=[f'第{i}期' for i in heatmap_data.columns],
+            x=[f'{t("charts.period_label", "Period")} {i}' for i in heatmap_data.columns],
             y=heatmap_data.index,
             colorscale='RdYlBu_r',
             zmin=0, zmax=1,
-            hovertemplate='队列: %{y}<br>时期: %{x}<br>留存率: %{z:.1%}<extra></extra>',
-            colorbar=dict(title="留存率", tickformat=".0%")
+            hovertemplate=f'{t("charts.cohort_label", "Cohort")}: %{{y}}<br>' +
+                         f'{t("charts.period_label", "Period")}: %{{x}}<br>' +
+                         f'{t("charts.retention_rate_label", "Retention Rate")}: %{{z:.1%}}<br>' +
+                         '<extra></extra>',
+            colorbar=dict(title=t("charts.retention_rate_label", "Retention Rate"), tickformat=".0%")
         ))
 
         # 添加数值标签
@@ -193,57 +224,14 @@ class ChartGenerator:
                     ))
 
         fig.update_layout(
-            title='用户留存热力图',
-            xaxis_title='时期',
-            yaxis_title='用户队列',
+            title=t('charts.retention_heatmap_title', 'User Retention Heatmap'),
+            xaxis_title=t('charts.period_label', 'Period'),
+            yaxis_title=t('charts.user_cohort_label', 'User Cohort'),
             annotations=annotations,
             height=400 + len(heatmap_data.index) * 20,
             template='plotly_white'
         )
 
-        return fig
-        
-        # 创建热力图
-        fig = go.Figure(data=go.Heatmap(
-            z=heatmap_data.values,
-            x=[f'第{i}期' for i in heatmap_data.columns],
-            y=heatmap_data.index,
-            colorscale='RdYlBu_r',
-            hoverongaps=False,
-            hovertemplate='队列: %{y}<br>' +
-                         '时期: %{x}<br>' +
-                         '留存率: %{z:.1%}<br>' +
-                         '<extra></extra>',
-            colorbar=dict(
-                title="留存率",
-                tickformat=".0%"
-            )
-        ))
-        
-        # 在每个单元格中显示数值
-        annotations = []
-        for i, cohort in enumerate(heatmap_data.index):
-            for j, period in enumerate(heatmap_data.columns):
-                value = heatmap_data.iloc[i, j]
-                if not pd.isna(value):
-                    annotations.append(
-                        dict(
-                            x=j, y=i,
-                            text=f'{value:.1%}',
-                            showarrow=False,
-                            font=dict(color='white' if value < 0.5 else 'black')
-                        )
-                    )
-        
-        fig.update_layout(
-            title='用户留存热力图',
-            xaxis_title='时期',
-            yaxis_title='用户队列',
-            annotations=annotations,
-            height=500,
-            template='plotly_white'
-        )
-        
         return fig
     
     def create_funnel_chart(self, data) -> go.Figure:
@@ -258,13 +246,19 @@ class ChartGenerator:
         """
         # 安全地检查和转换数据
         if data is None:
-            return self._create_empty_chart("转化漏斗图", "暂无转化数据")
+            return self._create_empty_chart(
+                t('charts.funnel_chart_title', 'Conversion Funnel Chart'), 
+                t('charts.no_conversion_data', 'No conversion data available')
+            )
 
         # 如果是ConversionFunnel对象，转换为DataFrame
         if hasattr(data, 'steps') and hasattr(data, 'funnel_name'):
             try:
                 if not data.steps or len(data.steps) == 0:
-                    return self._create_empty_chart("转化漏斗图", "漏斗步骤为空")
+                    return self._create_empty_chart(
+                        t('charts.funnel_chart_title', 'Conversion Funnel Chart'), 
+                        t('charts.funnel_steps_empty', 'Funnel steps are empty')
+                    )
 
                 # 从ConversionFunnel对象提取数据
                 funnel_data = []
@@ -277,34 +271,55 @@ class ChartGenerator:
                     })
                 data = pd.DataFrame(funnel_data)
             except Exception as e:
-                return self._create_empty_chart("转化漏斗图", f"ConversionFunnel转换失败: {str(e)}")
+                return self._create_empty_chart(
+                    t('charts.funnel_chart_title', 'Conversion Funnel Chart'), 
+                    f"{t('charts.conversion_funnel_error', 'ConversionFunnel conversion failed')}: {str(e)}"
+                )
 
         # 如果是字典，尝试转换为DataFrame
         elif isinstance(data, dict):
             try:
                 if len(data) == 0:
-                    return self._create_empty_chart("转化漏斗图", "转化数据为空")
+                    return self._create_empty_chart(
+                        t('charts.funnel_chart_title', 'Conversion Funnel Chart'), 
+                        t('charts.conversion_data_empty', 'Conversion data is empty')
+                    )
                 data = pd.DataFrame(data)
             except Exception as e:
-                return self._create_empty_chart("转化漏斗图", f"字典转换失败: {str(e)}")
+                return self._create_empty_chart(
+                    t('charts.funnel_chart_title', 'Conversion Funnel Chart'), 
+                    f"{t('charts.dict_conversion_error', 'Dictionary conversion failed')}: {str(e)}"
+                )
 
         # 如果是列表，尝试转换为DataFrame
         elif isinstance(data, list):
             try:
                 if len(data) == 0:
-                    return self._create_empty_chart("转化漏斗图", "转化数据列表为空")
+                    return self._create_empty_chart(
+                        t('charts.funnel_chart_title', 'Conversion Funnel Chart'), 
+                        t('charts.conversion_data_list_empty', 'Conversion data list is empty')
+                    )
                 data = pd.DataFrame(data)
             except Exception as e:
-                return self._create_empty_chart("转化漏斗图", f"列表转换失败: {str(e)}")
+                return self._create_empty_chart(
+                    t('charts.funnel_chart_title', 'Conversion Funnel Chart'), 
+                    f"{t('charts.list_conversion_error', 'List conversion failed')}: {str(e)}"
+                )
 
         # 如果是DataFrame，检查是否为空
         elif isinstance(data, pd.DataFrame):
             if data.empty:
-                return self._create_empty_chart("转化漏斗图", "转化数据DataFrame为空")
+                return self._create_empty_chart(
+                    t('charts.funnel_chart_title', 'Conversion Funnel Chart'), 
+                    t('charts.conversion_dataframe_empty', 'Conversion data DataFrame is empty')
+                )
 
         # 如果是其他类型，返回错误
         else:
-            return self._create_empty_chart("转化漏斗图", f"不支持的数据类型: {type(data)}")
+            return self._create_empty_chart(
+                t('charts.funnel_chart_title', 'Conversion Funnel Chart'), 
+                f"{t('charts.unsupported_data_type', 'Unsupported data type')}: {type(data)}"
+            )
             
         # 确保必要的列存在
         required_columns = ['step_name', 'user_count']
@@ -330,9 +345,9 @@ class ChartGenerator:
             y=data['step_name'],
             x=data['user_count'],
             textinfo="value+percent initial",
-            hovertemplate='步骤: %{y}<br>' +
-                         '用户数: %{x}<br>' +
-                         '转化率: %{percentInitial}<br>' +
+            hovertemplate=f'{t("charts.step_label", "Step")}: %{{y}}<br>' +
+                         f'{t("charts.user_count_label", "User Count")}: %{{x}}<br>' +
+                         f'{t("charts.conversion_rate_label", "Conversion Rate")}: %{{percentInitial}}<br>' +
                          '<extra></extra>',
             marker=dict(
                 color=self.default_colors[:len(data)],
@@ -341,7 +356,7 @@ class ChartGenerator:
         ))
         
         fig.update_layout(
-            title='转化漏斗分析',
+            title=t('charts.funnel_chart_title', 'Conversion Funnel Analysis'),
             height=500,
             template='plotly_white'
         )
@@ -359,7 +374,10 @@ class ChartGenerator:
             plotly.graph_objects.Figure: 事件分布图表
         """
         if data.empty:
-            return self._create_empty_chart("事件分布图", "暂无事件数据")
+            return self._create_empty_chart(
+                t('charts.event_distribution_title', 'Event Distribution Chart'), 
+                t('charts.no_event_data', 'No event data available')
+            )
             
         # 确保必要的列存在
         if 'event_name' not in data.columns:
@@ -374,8 +392,8 @@ class ChartGenerator:
             values=event_counts.values,
             hole=0.3,
             hovertemplate='<b>%{label}</b><br>' +
-                         '事件数量: %{value}<br>' +
-                         '占比: %{percent}<br>' +
+                         f'{t("charts.event_count_label", "Event Count")}: %{{value}}<br>' +
+                         f'{t("charts.percentage_label", "Percentage")}: %{{percent}}<br>' +
                          '<extra></extra>',
             textinfo='label+percent',
             textposition='auto',
@@ -386,7 +404,7 @@ class ChartGenerator:
         )])
         
         fig.update_layout(
-            title='事件类型分布',
+            title=t('charts.event_distribution_title', 'Event Type Distribution'),
             height=500,
             template='plotly_white',
             showlegend=True,
@@ -445,7 +463,12 @@ class ChartGenerator:
         # 创建子图
         fig = make_subplots(
             rows=2, cols=2,
-            subplot_titles=('事件趋势', '用户活跃度', '转化率', '留存率'),
+            subplot_titles=(
+                t('charts.event_trends_label', 'Event Trends'), 
+                t('charts.user_activity_label', 'User Activity'), 
+                t('charts.conversion_rate_label', 'Conversion Rate'), 
+                t('charts.retention_rate_label', 'Retention Rate')
+            ),
             specs=[[{"secondary_y": False}, {"secondary_y": False}],
                    [{"secondary_y": False}, {"secondary_y": False}]]
         )
@@ -458,7 +481,7 @@ class ChartGenerator:
                     x=event_data.get('date', []),
                     y=event_data.get('count', []),
                     mode='lines',
-                    name='事件数量',
+                    name=t('charts.event_count_label', 'Event Count'),
                     line=dict(color=self.default_colors[0])
                 ),
                 row=1, col=1
@@ -471,7 +494,7 @@ class ChartGenerator:
                 go.Bar(
                     x=activity_data.get('date', []),
                     y=activity_data.get('active_users', []),
-                    name='活跃用户',
+                    name=t('charts.active_users_label', 'Active Users'),
                     marker_color=self.default_colors[1]
                 ),
                 row=1, col=2
@@ -485,7 +508,7 @@ class ChartGenerator:
                     x=list(conversion_data.keys()),
                     y=list(conversion_data.values()),
                     mode='lines+markers',
-                    name='转化率',
+                    name=t('charts.conversion_rate_label', 'Conversion Rate'),
                     line=dict(color=self.default_colors[2])
                 ),
                 row=2, col=1
@@ -498,14 +521,14 @@ class ChartGenerator:
                 go.Bar(
                     x=list(retention_data.keys()),
                     y=list(retention_data.values()),
-                    name='留存率',
+                    name=t('charts.retention_rate_label', 'Retention Rate'),
                     marker_color=self.default_colors[3]
                 ),
                 row=2, col=2
             )
         
         fig.update_layout(
-            title='数据分析仪表板',
+            title=t('charts.dashboard_title', 'Data Analysis Dashboard'),
             height=600,
             showlegend=False,
             template='plotly_white'

@@ -15,6 +15,10 @@ from collections import defaultdict, Counter
 from itertools import combinations
 import warnings
 
+# Import internationalization support
+from utils.i18n import t
+from utils.i18n_enhanced import LocalizedInsightGenerator
+
 # 忽略统计计算中的警告
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
@@ -100,7 +104,7 @@ class PathAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                     
                 filters = {}
                 if user_ids:
@@ -111,7 +115,7 @@ class PathAnalysisEngine:
                 events = self.storage_manager.get_data('events', filters)
                 
             if events.empty:
-                logger.warning("事件数据为空，无法重构会话")
+                logger.warning("Event data is empty, cannot reconstruct sessions")
                 return []
                 
             # 确保有时间列
@@ -119,7 +123,7 @@ class PathAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("缺少时间字段")
+                    raise ValueError("Missing time field")
                     
             sessions = []
             
@@ -213,7 +217,7 @@ class PathAnalysisEngine:
         """
         try:
             if not session_events:
-                raise ValueError("会话事件列表为空")
+                raise ValueError("Session event list is empty")
                 
             # 计算会话基本信息
             start_time = min(event['event_datetime'] for event in session_events)
@@ -266,7 +270,7 @@ class PathAnalysisEngine:
                 sessions = self.reconstruct_user_sessions()
                 
             if not sessions:
-                logger.warning("没有可用的会话数据进行路径分析")
+                logger.warning("No session data available for path analysis")
                 return PathAnalysisResult(
                     total_sessions=0,
                     total_paths=0,
@@ -731,7 +735,7 @@ class PathAnalysisEngine:
         insights = []
         
         if not sessions:
-            return ["没有足够的会话数据生成洞察"]
+            return [t("path_analysis.insights.insufficient_session_data", "没有足够的会话数据生成洞察")]
         
         # 基本统计洞察
         total_sessions = len(sessions)
@@ -739,26 +743,26 @@ class PathAnalysisEngine:
         conversion_sessions = sum(1 for s in sessions if s.conversions > 0)
         conversion_rate = conversion_sessions / total_sessions
         
-        insights.append(f"分析了{total_sessions}个用户会话，平均路径长度为{avg_path_length:.1f}步")
-        insights.append(f"整体转化率为{conversion_rate:.1%}，共有{conversion_sessions}个转化会话")
+        insights.append(LocalizedInsightGenerator.format_session_summary(total_sessions, avg_path_length))
+        insights.append(LocalizedInsightGenerator.format_conversion_summary(conversion_rate, conversion_sessions))
         
         # 常见模式洞察
         if common_patterns:
             most_common = common_patterns[0]
-            insights.append(f"最常见的用户路径是：{' → '.join(most_common.path_sequence)}，出现{most_common.frequency}次")
+            insights.append(LocalizedInsightGenerator.format_common_path_insight(most_common.path_sequence, most_common.frequency))
             
             high_conversion_patterns = [p for p in common_patterns if p.conversion_rate > 0.3]
             if high_conversion_patterns:
-                insights.append(f"发现{len(high_conversion_patterns)}个高转化路径模式，转化率超过30%")
+                insights.append(LocalizedInsightGenerator.format_conversion_patterns_insight(len(high_conversion_patterns)))
         
         # 异常模式洞察
         if anomalous_patterns:
-            insights.append(f"识别出{len(anomalous_patterns)}个异常用户行为模式，需要特别关注")
+            insights.append(LocalizedInsightGenerator.format_anomalous_patterns_insight(len(anomalous_patterns)))
         
         # 转化路径洞察
         if conversion_paths:
             shortest_conversion = min(conversion_paths, key=lambda x: len(x.path_sequence))
-            insights.append(f"最短转化路径为{len(shortest_conversion.path_sequence)}步：{' → '.join(shortest_conversion.path_sequence)}")
+            insights.append(LocalizedInsightGenerator.format_shortest_conversion_path(len(shortest_conversion.path_sequence), shortest_conversion.path_sequence))
         
         return insights
         
@@ -778,28 +782,28 @@ class PathAnalysisEngine:
             # 基于常见模式的建议
             if analysis_result.common_patterns:
                 most_common = analysis_result.common_patterns[0]
-                recommendations.append(f"优化最常见路径'{' → '.join(most_common.path_sequence)}'的用户体验")
+                recommendations.append(LocalizedInsightGenerator.format_optimization_recommendation(most_common.path_sequence))
                 
                 # 分析路径长度
                 if len(most_common.path_sequence) > 5:
-                    recommendations.append("考虑简化用户流程，减少达成目标所需的步骤数")
+                    recommendations.append(t("path_analysis.recommendations.simplify_user_flow", "考虑简化用户流程，减少达成目标所需的步骤数"))
                 
                 # 分析转化率
                 low_conversion_patterns = [p for p in analysis_result.common_patterns if p.conversion_rate < 0.1]
                 if low_conversion_patterns:
-                    recommendations.append("关注低转化率的常见路径，优化关键转换点")
+                    recommendations.append(t("path_analysis.recommendations.optimize_low_conversion", "关注低转化率的常见路径，优化关键转换点"))
             
             # 基于异常模式的建议
             if analysis_result.anomalous_patterns:
-                recommendations.append("调查异常用户行为模式，可能存在产品可用性问题")
+                recommendations.append(t("path_analysis.recommendations.investigate_anomalies", "调查异常用户行为模式，可能存在产品可用性问题"))
                 
                 long_anomalous = [p for p in analysis_result.anomalous_patterns if len(p.path_sequence) > 10]
                 if long_anomalous:
-                    recommendations.append("部分用户路径过长，考虑提供更直接的导航选项")
+                    recommendations.append(t("path_analysis.recommendations.provide_direct_navigation", "部分用户路径过长，考虑提供更直接的导航选项"))
             
             # 基于转化路径的建议
             if analysis_result.conversion_paths:
-                recommendations.append("分析成功转化路径，将其最佳实践应用到其他用户流程")
+                recommendations.append(t("path_analysis.recommendations.analyze_conversion_paths", "分析成功转化路径，将其最佳实践应用到其他用户流程"))
                 
                 # 找出转化路径的共同特征
                 conversion_events = set()
@@ -807,7 +811,7 @@ class PathAnalysisEngine:
                     conversion_events.update(path.path_sequence)
                 
                 if 'page_view' in conversion_events and 'view_item' in conversion_events:
-                    recommendations.append("确保产品详情页能有效引导用户进行转化")
+                    recommendations.append(t("path_analysis.recommendations.optimize_product_pages", "确保产品详情页能有效引导用户进行转化"))
             
             # 基于退出模式的建议
             if analysis_result.exit_patterns:
@@ -818,20 +822,20 @@ class PathAnalysisEngine:
                 
                 if common_exit_events:
                     most_common_exit = common_exit_events.most_common(1)[0][0]
-                    recommendations.append(f"用户经常在'{most_common_exit}'事件后离开，需要优化该环节的用户体验")
+                    recommendations.append(LocalizedInsightGenerator.format_exit_point_recommendation(most_common_exit))
             
             # 通用建议
             if analysis_result.avg_path_length > 8:
-                recommendations.append("平均路径长度较长，考虑提供快捷操作和智能推荐")
+                recommendations.append(t("path_analysis.recommendations.provide_shortcuts", "平均路径长度较长，考虑提供快捷操作和智能推荐"))
             
             if not recommendations:
-                recommendations.append("当前用户路径表现良好，继续监控关键指标变化")
+                recommendations.append(t("path_analysis.recommendations.maintain_monitoring", "当前用户路径表现良好，继续监控关键指标变化"))
             
             return recommendations
             
         except Exception as e:
             logger.error(f"生成UX建议失败: {e}")
-            return ["无法生成UX优化建议，请检查分析数据"]
+            return [t("path_analysis.recommendations.generation_failed", "无法生成UX优化建议，请检查分析数据")]
             
     def mine_user_paths(self, events: Optional[pd.DataFrame] = None, min_length: int = 2, max_length: int = 10, min_support: float = 0.01, date_range: Optional[Tuple[str, str]] = None) -> List[PathPattern]:
         """
@@ -884,7 +888,7 @@ class PathAnalysisEngine:
             if events.empty:
                 return {
                     'status': 'error',
-                    'message': '事件数据为空',
+                    'message': t("path_analysis.errors.empty_event_data", "事件数据为空"),
                     'insights': [],
                     'recommendations': []
                 }
@@ -895,7 +899,7 @@ class PathAnalysisEngine:
             if not sessions:
                 return {
                     'status': 'error',
-                    'message': '无法重构用户会话',
+                    'message': t("path_analysis.errors.session_reconstruction_failed", "无法重构用户会话"),
                     'insights': [],
                     'recommendations': []
                 }
@@ -910,8 +914,8 @@ class PathAnalysisEngine:
             # 会话统计洞察
             total_sessions = len(sessions)
             avg_session_length = sum(len(s.path_sequence) for s in sessions) / total_sessions
-            insights.append(f"分析了 {total_sessions} 个用户会话")
-            insights.append(f"平均路径长度: {avg_session_length:.1f} 步")
+            insights.append(t("path_analysis.results.total_sessions_analyzed", "分析了 {total_sessions} 个用户会话").format(total_sessions=total_sessions))
+            insights.append(t("path_analysis.results.avg_path_length", "平均路径长度: {avg_length:.1f} 步").format(avg_length=avg_session_length))
             
             # 路径模式洞察
             if path_patterns:
@@ -921,43 +925,43 @@ class PathAnalysisEngine:
                 
                 if common_patterns:
                     most_common = common_patterns[0]
-                    insights.append(f"最常见路径: {' → '.join(most_common.path_sequence)}")
-                    insights.append(f"该路径被 {most_common.user_count} 个用户使用")
+                    insights.append(t("path_analysis.results.most_common_path", "最常见路径: {path}").format(path=' → '.join(most_common.path_sequence)))
+                    insights.append(t("path_analysis.results.path_user_count", "该路径被 {user_count} 个用户使用").format(user_count=most_common.user_count))
                     
                     if most_common.conversion_rate > 0.3:
-                        recommendations.append("最常见路径转化率良好，可以作为用户引导的标准流程")
+                        recommendations.append(t("path_analysis.results.good_conversion_rate", "最常见路径转化率良好，可以作为用户引导的标准流程"))
                     else:
-                        recommendations.append("最常见路径转化率较低，需要优化关键转换点")
+                        recommendations.append(t("path_analysis.results.low_conversion_rate", "最常见路径转化率较低，需要优化关键转换点"))
                 
                 if conversion_patterns:
-                    insights.append(f"发现 {len(conversion_patterns)} 个高转化路径模式")
+                    insights.append(t("path_analysis.results.conversion_patterns_found", "发现 {count} 个高转化路径模式").format(count=len(conversion_patterns)))
                     best_conversion = max(conversion_patterns, key=lambda x: x.conversion_rate)
-                    insights.append(f"最佳转化路径转化率: {best_conversion.conversion_rate*100:.1f}%")
-                    recommendations.append("分析高转化路径的成功要素，应用到其他用户流程")
+                    insights.append(t("path_analysis.results.best_conversion_rate", "最佳转化路径转化率: {rate:.1f}%").format(rate=best_conversion.conversion_rate*100))
+                    recommendations.append(t("path_analysis.results.analyze_success_factors", "分析高转化路径的成功要素，应用到其他用户流程"))
                 
                 if exit_patterns:
-                    insights.append(f"识别出 {len(exit_patterns)} 个用户流失模式")
+                    insights.append(t("path_analysis.results.exit_patterns_found", "识别出 {count} 个用户流失模式").format(count=len(exit_patterns)))
                     main_exit = exit_patterns[0]
                     if main_exit.path_sequence:
                         exit_point = main_exit.path_sequence[-1]
-                        insights.append(f"主要流失点: {exit_point}")
-                        recommendations.append(f"重点优化 {exit_point} 环节，减少用户流失")
+                        insights.append(t("path_analysis.results.main_exit_point", "主要流失点: {exit_point}").format(exit_point=exit_point))
+                        recommendations.append(t("path_analysis.results.optimize_exit_point", "重点优化 {exit_point} 环节，减少用户流失").format(exit_point=exit_point))
             
             # 会话质量分析
             conversion_sessions = [s for s in sessions if s.conversions > 0]
             conversion_rate = len(conversion_sessions) / total_sessions * 100
-            insights.append(f"会话转化率: {conversion_rate:.1f}%")
+            insights.append(t("path_analysis.results.session_conversion_rate", "会话转化率: {rate:.1f}%").format(rate=conversion_rate))
             
             if conversion_rate < 10:
-                recommendations.append("会话转化率较低，需要全面优化用户体验流程")
+                recommendations.append(t("path_analysis.results.low_session_conversion", "会话转化率较低，需要全面优化用户体验流程"))
             elif conversion_rate > 30:
-                recommendations.append("会话转化率表现良好，可以重点关注提升转化深度")
+                recommendations.append(t("path_analysis.results.good_session_conversion", "会话转化率表现良好，可以重点关注提升转化深度"))
             
             # 路径长度分析
             if avg_session_length > 10:
-                recommendations.append("用户路径较长，考虑提供快捷操作和智能推荐")
+                recommendations.append(t("path_analysis.results.long_user_paths", "用户路径较长，考虑提供快捷操作和智能推荐"))
             elif avg_session_length < 3:
-                recommendations.append("用户路径较短，可能存在用户参与度不足的问题")
+                recommendations.append(t("path_analysis.results.short_user_paths", "用户路径较短，可能存在用户参与度不足的问题"))
             
             return {
                 'status': 'success',
@@ -1003,7 +1007,7 @@ class PathAnalysisEngine:
             if events.empty:
                 return {
                     'status': 'error',
-                    'message': '事件数据为空',
+                    'message': t("path_analysis.flow.empty_event_data", "事件数据为空"),
                     'flow_analysis': {},
                     'drop_off_points': [],
                     'recommendations': []
@@ -1037,13 +1041,13 @@ class PathAnalysisEngine:
                     {'path': ['browse', 'add_to_cart', 'purchase'], 'efficiency': 0.7}
                 ],
                 'insights': [
-                    '用户流程存在明显瓶颈',
-                    '直接转化路径效率最高'
+                    t("path_analysis.flow.bottleneck_exists", "用户流程存在明显瓶颈"),
+                    t("path_analysis.flow.direct_conversion_efficient", "直接转化路径效率最高")
                 ],
                 'recommendations': [
-                    '优化高流失步骤的用户体验',
-                    '简化转化流程',
-                    '增加引导提示'
+                    t("path_analysis.flow.optimize_high_dropoff", "优化高流失步骤的用户体验"),
+                    t("path_analysis.flow.simplify_conversion", "简化转化流程"),
+                    t("path_analysis.flow.add_guidance", "增加引导提示")
                 ]
             }
             

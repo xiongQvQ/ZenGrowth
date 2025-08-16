@@ -116,14 +116,14 @@ class CohortAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 
                 # 获取用户首次事件数据
                 filters = {'event_name': [cohort_type]}
                 events = self.storage_manager.get_data('events', filters)
             
             if events.empty:
-                logger.warning("事件数据为空，无法进行队列构建")
+                logger.warning("Event data is empty, cannot build cohorts")
                 return self._create_empty_cohort_result(cohort_type)
             
             # 确保有时间列
@@ -131,7 +131,7 @@ class CohortAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("数据中缺少时间字段")
+                    raise ValueError("Missing time field in data")
             
             # 按用户分组，获取每个用户的首次事件时间
             user_first_events = events.groupby('user_pseudo_id')['event_datetime'].min().reset_index()
@@ -199,7 +199,7 @@ class CohortAnalysisEngine:
             
             # 获取所有用户的事件数据
             if self.storage_manager is None:
-                raise ValueError("存储管理器未初始化")
+                raise ValueError("Storage manager not initialized")
             
             events = self.storage_manager.get_data('events', {})
             if events.empty:
@@ -210,7 +210,7 @@ class CohortAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("数据中缺少时间字段")
+                    raise ValueError("Missing time field in data")
             
             # 构建用户队列映射
             cohort_user_map = {}

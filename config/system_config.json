@@ -1,53 +1,50 @@
 {
-  "api_settings": {
-    "google_api_key": "AIzaSyB4eWAjdMI592BrDWUQgWFC9g_MGjg36W0",
-    "llm_model": "gemini-2.5-pro",
-    "llm_temperature": 0.1,
-    "llm_max_tokens": 4000,
-    "api_timeout": 30,
-    "max_retries": 3,
-    "default_llm_provider": "volcano",
-    "enabled_providers": [
-      "volcano"
-    ],
-    "enable_fallback": true,
-    "fallback_order": [
-      "volcano"
-    ],
-    "ark_model": "doubao-seed-1-6-250615",
-    "enable_multimodal": true,
-    "max_image_size_mb": 15,
-    "ark_base_url": "https://ark.cn-beijing.volces.com/api/v3",
-    "ark_temperature": 0.1,
-    "supported_image_formats": [
-      "jpg",
-      "jpeg",
-      "png",
-      "gif",
-      "webp"
-    ],
-    "image_analysis_timeout": 60,
-    "ark_api_key": "31ccc6cb-bb68-42b2-8299-e691ae7a29f1"
-  },
-  "data_processing": {
-    "max_file_size_mb": 100,
-    "chunk_size": 10000,
-    "memory_limit_gb": 4,
-    "temp_dir": "data/temp",
-    "cleanup_temp_files": true
-  },
   "ui_settings": {
     "theme": "light",
     "language": "en-US",
     "page_size": 20,
-    "auto_refresh": false,
-    "show_debug_info": false
+    "show_debug": false,
+    "auto_refresh": false
   },
-  "export_settings": {
-    "default_format": "json",
-    "include_raw_data": false,
-    "compress_exports": true,
-    "export_dir": "reports",
-    "filename_template": "analysis_report_{timestamp}"
+  "llm_settings": {
+    "default_provider": "google",
+    "enabled_providers": [
+      "google",
+      "volcano"
+    ],
+    "enable_fallback": true,
+    "fallback_order": [
+      "google",
+      "volcano"
+    ]
+  },
+  "google_settings": {
+    "model": "gemini-1.5-pro",
+    "temperature": 0.7,
+    "max_tokens": 4000,
+    "timeout": 30,
+    "retries": 3
+  },
+  "volcano_settings": {
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "model": "doubao-1.5-pro-32k",
+    "temperature": 0.7
+  },
+  "multimodal_settings": {
+    "enabled": true,
+    "max_image_size": 10,
+    "image_timeout": 60,
+    "supported_formats": [
+      "jpg",
+      "jpeg",
+      "png"
+    ]
+  },
+  "data_processing": {
+    "max_file_size": 100,
+    "chunk_size": 10000,
+    "memory_limit": 4,
+    "temp_dir": "data/temp",
+    "auto_cleanup": true
   }
 }

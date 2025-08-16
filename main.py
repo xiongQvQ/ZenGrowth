@@ -38,15 +38,16 @@ st.set_page_config(
 )
 
 
+@st.cache_data(ttl=600, show_spinner=False)  # Cache for 10 minutes
 def check_provider_health():
-    """检查LLM提供商健康状态"""
+    """检查LLM提供商健康状态 - 带缓存优化"""
     try:
         provider_manager = get_provider_manager()
         # 使用正确的方法名
         health_results = provider_manager.health_check_all()
         
-        state_manager = get_state_manager()
         health_status = {}
+        unavailable_providers = []
         
         for provider, result in health_results.items():
             healthy = result.status == "available"
@@ -57,13 +58,16 @@ def check_provider_health():
                 'error_message': result.error_message,
                 'last_check': result.last_check
             }
-            state_manager.update_api_health(provider, healthy, status_info)
             health_status[provider] = status_info
+            
+            if not healthy and result.status not in ["degraded"]:
+                unavailable_providers.append(provider)
         
-        return health_status
+        return health_status, unavailable_providers
     except Exception as e:
-        st.error(f"健康检查失败: {str(e)}")
-        return {}
+        logger = setup_logger()
+        logger.error(f"健康检查失败: {e}")
+        return {}, []
 
 
 def initialize_session_state():
@@ -131,8 +135,17 @@ def main():
     # 初始化会话状态（必须在健康检查之前）
     initialize_session_state()
     
-    # 检查提供商健康状态
-    check_provider_health()
+    # 检查提供商健康状态（缓存优化）
+    health_status, unavailable_providers = check_provider_health()
+    
+    # 更新状态管理器
+    state_manager = get_state_manager()
+    for provider, status_info in health_status.items():
+        state_manager.update_api_health(provider, status_info['healthy'], status_info)
+    
+    # 显示警告（如果有不可用的提供商）
+    if unavailable_providers:
+        st.warning(f"以下LLM提供商当前不可用: {', '.join(unavailable_providers)}")
     
     # 应用标题
     st.title(f"{settings.app_icon} {t('app.title', settings.app_title)}")

@@ -194,9 +194,16 @@ class I18nManager:
     def _update_current_language(self):
         """更新当前语言设置"""
         try:
+            # 优先使用环境变量设置
+            env_lang = os.environ.get('FORCE_LANGUAGE')
+            if env_lang:
+                self.current_language = env_lang
+                return
+                
             system_config = config_manager.get_system_config()
             self.current_language = system_config.get('ui_settings', {}).get('language', 'zh-CN')
-        except:
+        except Exception as e:
+            print(f"读取语言配置失败: {e}")
             self.current_language = 'zh-CN'
     
     def get_text(self, key: str, default: Optional[str] = None) -> str:

@@ -14,14 +14,15 @@ from config.settings import settings
 from tools.ga4_data_parser import GA4DataParser
 from tools.data_validator import DataValidator
 from utils.i18n import t
+from utils.cached_components import get_cached_ga4_parser, get_cached_data_validator
 
 
 class DataUploadPage:
     """数据上传页面类"""
     
     def __init__(self):
-        self.parser = GA4DataParser()
-        self.validator = DataValidator()
+        self.parser = get_cached_ga4_parser()
+        self.validator = get_cached_data_validator()
     
     def render(self):
         """渲染数据上传页面"""

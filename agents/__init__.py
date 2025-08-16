@@ -1,2 +1,2 @@
-# CrewAI智能体模块
-# 包含所有专业化的AI智能体实现
+# CrewAI Agent Module
+# Contains all specialized AI agent implementations

@@ -12,9 +12,31 @@ from datetime import datetime
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+import streamlit as st
 
 # 配置日志
 logger = logging.getLogger(__name__)
+
+
+@st.cache_data
+def cached_parse_ndjson(file_path: str, _parser_config: dict = None) -> pd.DataFrame:
+    """缓存的NDJSON解析函数"""
+    parser = GA4DataParser()
+    return parser.parse_ndjson(file_path)
+
+
+@st.cache_data 
+def cached_extract_events(data: pd.DataFrame, _parser_config: dict = None) -> Dict[str, pd.DataFrame]:
+    """缓存的事件提取函数"""
+    parser = GA4DataParser()
+    return parser.extract_events(data)
+
+
+@st.cache_data
+def cached_validate_data_quality(data: pd.DataFrame, _parser_config: dict = None) -> Dict[str, Any]:
+    """缓存的数据质量验证函数"""
+    parser = GA4DataParser()
+    return parser.validate_data_quality(data)
 
 
 @dataclass

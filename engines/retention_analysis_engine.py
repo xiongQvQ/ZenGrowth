@@ -14,6 +14,23 @@ from dataclasses import dataclass
 from collections import defaultdict
 import warnings
 
+# Import i18n function
+try:
+    from utils.i18n import t
+    from utils.i18n_enhanced import LocalizedInsightGenerator
+except ImportError:
+    # Fallback if i18n is not available
+    def t(key: str, default: str = None) -> str:
+        return default or key
+    
+    class LocalizedInsightGenerator:
+        @staticmethod
+        def format_cohorts_built(count):
+            return f"Built {count} user cohorts"
+        @staticmethod
+        def format_retention_summary(count, analysis_type):
+            return f"Completed {analysis_type} retention analysis, containing {count} cohorts"
+
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 logger = logging.getLogger(__name__)
@@ -64,7 +81,7 @@ class RetentionAnalysisEngine:
         """
         self.storage_manager = storage_manager
         
-        logger.info("留存分析引擎初始化完成")
+        logger.info(t("retention.engine_initialized", "留存分析引擎初始化完成"))
         
     def build_user_cohorts(self,
                           events: Optional[pd.DataFrame] = None,
@@ -85,11 +102,11 @@ class RetentionAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 events = self.storage_manager.get_data('events')
                 
             if events.empty:
-                logger.warning("事件数据为空，无法构建用户队列")
+                logger.warning(t("retention.empty_event_data_warning", "事件数据为空，无法构建用户队列"))
                 return {}
                 
             # 确保有时间列
@@ -97,7 +114,7 @@ class RetentionAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("缺少时间字段")
+                    raise ValueError("Missing time field")
                     
             # 计算每个用户的首次活动时间
             user_first_activity = events.groupby('user_pseudo_id')['event_datetime'].min().reset_index()
@@ -120,11 +137,11 @@ class RetentionAnalysisEngine:
                 if len(users) >= min_cohort_size
             }
             
-            logger.info(f"构建了{len(filtered_cohorts)}个用户队列")
+            logger.info(LocalizedInsightGenerator.format_cohorts_built(len(filtered_cohorts)))
             return filtered_cohorts
             
         except Exception as e:
-            logger.error(f"构建用户队列失败: {e}")
+            logger.error(f"{t('retention.build_cohorts_failed', '构建用户队列失败')}: {e}")
             raise
             
     def _get_cohort_key(self, date: datetime, period: str) -> str:
@@ -159,7 +176,7 @@ class RetentionAnalysisEngine:
         elif normalized_period == 'monthly':
             return date.strftime('%Y-%m')
         else:
-            raise ValueError(f"不支持的队列周期: {period} (支持的格式: daily/日, weekly/周, monthly/月)")
+            raise ValueError(f"Unsupported cohort period: {period} ({t('retention.supported_formats', '支持的格式: daily/日, weekly/周, monthly/月')})")
             
     def calculate_retention_rates(self,
                                 events: Optional[pd.DataFrame] = None,
@@ -180,11 +197,11 @@ class RetentionAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 events = self.storage_manager.get_data('events')
                 
             if events.empty:
-                logger.warning("事件数据为空，无法计算留存率")
+                logger.warning(t("retention.empty_data_no_retention", "Event data is empty, cannot calculate retention rate"))
                 return RetentionAnalysisResult(
                     analysis_type=analysis_type,
                     cohorts=[],
@@ -198,13 +215,13 @@ class RetentionAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("缺少时间字段")
+                    raise ValueError("Missing time field")
                     
             # 构建用户队列
             cohorts_dict = self.build_user_cohorts(events, analysis_type)
             
             if not cohorts_dict:
-                logger.warning("没有足够的队列数据进行留存分析")
+                logger.warning(t("retention.insufficient_cohort_data", "Not enough cohort data for retention analysis"))
                 return RetentionAnalysisResult(
                     analysis_type=analysis_type,
                     cohorts=[],
@@ -255,11 +272,11 @@ class RetentionAnalysisEngine:
                 summary_stats=summary_stats
             )
             
-            logger.info(f"完成{analysis_type}留存分析，包含{len(cohort_results)}个队列")
+            logger.info(LocalizedInsightGenerator.format_retention_summary(len(cohort_results), analysis_type))
             return result
             
         except Exception as e:
-            logger.error(f"计算留存率失败: {e}")
+            logger.error(f"{t('retention.calculate_retention_failed', '计算留存率失败')}: {e}")
             raise
             
     def _calculate_cohort_retention(self,
@@ -319,7 +336,7 @@ class RetentionAnalysisEngine:
             )
             
         except Exception as e:
-            logger.warning(f"计算队列 {cohort_period} 留存率失败: {e}")
+            logger.warning(f"Failed to calculate cohort {cohort_period} retention rate: {e}")
             return None
             
     def _calculate_user_activity_periods(self,
@@ -362,7 +379,7 @@ class RetentionAnalysisEngine:
             elif normalized_analysis_type == 'monthly':
                 period_delta = timedelta(days=30)  # 简化为30天
             else:
-                raise ValueError(f"不支持的分析类型: {analysis_type} (支持的格式: daily/日, weekly/周, monthly/月)")
+                raise ValueError(f"Unsupported analysis type: {analysis_type} ({t('retention.supported_formats', '支持的格式: daily/日, weekly/周, monthly/月')})")
                 
             # 为每个事件计算所属周期
             for _, event in events.iterrows():
@@ -387,7 +404,7 @@ class RetentionAnalysisEngine:
             return {user_id: list(periods) for user_id, periods in user_activity_periods.items()}
             
         except Exception as e:
-            logger.warning(f"计算用户活动周期失败: {e}")
+            logger.warning(f"{t('retention.calculate_activity_periods_failed', '计算用户活动周期失败')}: {e}")
             return {}
             
     def _calculate_overall_retention_rates(self, cohorts: List[CohortData]) -> Dict[int, float]:
@@ -423,7 +440,7 @@ class RetentionAnalysisEngine:
             return overall_rates
             
         except Exception as e:
-            logger.warning(f"计算整体留存率失败: {e}")
+            logger.warning(f"{t('retention.calculate_overall_retention_failed', '计算整体留存率失败')}: {e}")
             return {}
             
     def _calculate_retention_summary_stats(self, cohorts: List[CohortData]) -> Dict[str, Any]:
@@ -476,7 +493,7 @@ class RetentionAnalysisEngine:
             }
             
         except Exception as e:
-            logger.warning(f"计算留存摘要统计失败: {e}")
+            logger.warning(f"{t('retention.calculate_summary_stats_failed', '计算留存摘要统计失败')}: {e}")
             return {}
             
     def analyze_daily_retention(self,
@@ -500,7 +517,7 @@ class RetentionAnalysisEngine:
             )
             
         except Exception as e:
-            logger.error(f"日留存分析失败: {e}")
+            logger.error(f"{t('retention.daily_analysis_failed', '日留存分析失败')}: {e}")
             raise
             
     def analyze_weekly_retention(self,
@@ -524,7 +541,7 @@ class RetentionAnalysisEngine:
             )
             
         except Exception as e:
-            logger.error(f"周留存分析失败: {e}")
+            logger.error(f"{t('retention.weekly_analysis_failed', '周留存分析失败')}: {e}")
             raise
             
     def analyze_monthly_retention(self,
@@ -548,7 +565,7 @@ class RetentionAnalysisEngine:
             )
             
         except Exception as e:
-            logger.error(f"月留存分析失败: {e}")
+            logger.error(f"{t('retention.monthly_analysis_failed', '月留存分析失败')}: {e}")
             raise 
            
     def create_user_retention_profiles(self,
@@ -568,14 +585,14 @@ class RetentionAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 events = self.storage_manager.get_data('events')
                 
             if users is None and self.storage_manager:
                 users = self.storage_manager.get_data('users')
                 
             if events.empty:
-                logger.warning("事件数据为空，无法创建用户留存档案")
+                logger.warning(t("retention.empty_data_no_profiles", "Event data is empty, cannot create user retention profiles"))
                 return []
                 
             # 确保有时间列
@@ -583,7 +600,7 @@ class RetentionAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("缺少时间字段")
+                    raise ValueError("Missing time field")
                     
             profiles = []
             
@@ -624,11 +641,11 @@ class RetentionAnalysisEngine:
                 
                 profiles.append(profile)
                 
-            logger.info(f"创建了{len(profiles)}个用户留存档案")
+            logger.info(LocalizedInsightGenerator.format_user_profiles_created(len(profiles)))
             return profiles
             
         except Exception as e:
-            logger.error(f"创建用户留存档案失败: {e}")
+            logger.error(f"{t('retention.create_profiles_failed', '创建用户留存档案失败')}: {e}")
             raise
             
     def _calculate_user_active_days(self, user_events: pd.DataFrame) -> int:
@@ -647,7 +664,7 @@ class RetentionAnalysisEngine:
             return len(active_dates)
             
         except Exception as e:
-            logger.warning(f"计算用户活跃天数失败: {e}")
+            logger.warning(f"{t('retention.calculate_active_days_failed', '计算用户活跃天数失败')}: {e}")
             return 0
             
     def _calculate_user_retention_periods(self,
@@ -674,7 +691,7 @@ class RetentionAnalysisEngine:
             return sorted(list(retention_periods))
             
         except Exception as e:
-            logger.warning(f"计算用户留存周期失败: {e}")
+            logger.warning(f"{t('retention.calculate_retention_periods_failed', '计算用户留存周期失败')}: {e}")
             return []
             
     def _analyze_user_activity_pattern(self, user_events: pd.DataFrame) -> Dict[str, Any]:
@@ -717,7 +734,7 @@ class RetentionAnalysisEngine:
             }
             
         except Exception as e:
-            logger.warning(f"分析用户活动模式失败: {e}")
+            logger.warning(f"{t('retention.analyze_activity_pattern_failed', '分析用户活动模式失败')}: {e}")
             return {}
             
     def _calculate_recent_activity_trend(self, user_events: pd.DataFrame, days: int = 7) -> str:
@@ -760,7 +777,7 @@ class RetentionAnalysisEngine:
                 return 'stable'
                 
         except Exception as e:
-            logger.warning(f"计算最近活动趋势失败: {e}")
+            logger.warning(f"{t('retention.calculate_recent_trend_failed', '计算最近活动趋势失败')}: {e}")
             return 'stable'
             
     def _calculate_churn_risk_score(self,
@@ -820,7 +837,7 @@ class RetentionAnalysisEngine:
             return min(risk_score, 100.0)
             
         except Exception as e:
-            logger.warning(f"计算流失风险得分失败: {e}")
+            logger.warning(f"{t('retention.calculate_churn_risk_failed', '计算流失风险得分失败')}: {e}")
             return 50.0  # 默认中等风险
             
     def get_retention_insights(self,
@@ -843,7 +860,7 @@ class RetentionAnalysisEngine:
             }
             
             if not retention_result.cohorts:
-                insights['recommendations'].append("数据不足，建议收集更多用户行为数据")
+                insights['recommendations'].append(LocalizedInsightGenerator.format_retention_recommendation('insufficient_data'))
                 return insights
                 
             # 关键指标
@@ -875,7 +892,7 @@ class RetentionAnalysisEngine:
             return insights
             
         except Exception as e:
-            logger.error(f"获取留存分析洞察失败: {e}")
+            logger.error(f"{t('retention.get_insights_failed', '获取留存分析洞察失败')}: {e}")
             return {}
             
     def _analyze_retention_trends(self, retention_result: RetentionAnalysisResult) -> Dict[str, Any]:
@@ -931,7 +948,7 @@ class RetentionAnalysisEngine:
             return trends
             
         except Exception as e:
-            logger.warning(f"分析留存趋势失败: {e}")
+            logger.warning(f"{t('retention.analyze_trends_failed', '分析留存趋势失败')}: {e}")
             return {}
             
     def _generate_retention_recommendations(self, retention_result: RetentionAnalysisResult) -> List[str]:
@@ -955,9 +972,9 @@ class RetentionAnalysisEngine:
                 first_period_retention = overall_rates[1]
                 
                 if first_period_retention < 0.2:
-                    recommendations.append("第1期留存率过低，建议优化新用户引导流程和首次体验")
+                    recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('low_first_period'))
                 elif first_period_retention < 0.4:
-                    recommendations.append("第1期留存率有待提升，建议加强用户激活策略")
+                    recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('improve_first_period'))
                     
             # 基于长期留存的建议
             if overall_rates:
@@ -965,25 +982,25 @@ class RetentionAnalysisEngine:
                 if last_period > 3:
                     long_term_retention = overall_rates[last_period]
                     if long_term_retention < 0.05:
-                        recommendations.append("长期留存率较低，建议建立用户忠诚度计划")
+                        recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('low_long_term'))
                         
             # 基于队列大小的建议
             avg_cohort_size = summary_stats.get('avg_cohort_size', 0)
             if avg_cohort_size < 50:
-                recommendations.append("队列规模较小，建议加大用户获取力度")
+                recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('small_cohort_size'))
                 
             # 基于留存率变异的建议
             if summary_stats.get('max_retention_rate', 0) - summary_stats.get('min_retention_rate', 0) > 0.3:
-                recommendations.append("不同队列间留存率差异较大，建议分析高留存队列的特征")
+                recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('large_variance'))
                 
             if not recommendations:
-                recommendations.append("留存表现良好，建议继续保持当前策略")
+                recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('good_performance'))
                 
             return recommendations
             
         except Exception as e:
-            logger.warning(f"生成留存建议失败: {e}")
-            return ["建议进行更详细的留存分析"]
+            logger.warning(f"{t('retention.generate_recommendations_failed', '生成留存建议失败')}: {e}")
+            return [LocalizedInsightGenerator.format_retention_recommendation('good_performance')]
             
     def _identify_retention_risk_factors(self, retention_result: RetentionAnalysisResult) -> List[str]:
         """
@@ -1007,13 +1024,13 @@ class RetentionAnalysisEngine:
                 
                 for i in range(1, len(rates_list)):
                     if rates_list[i-1] > 0 and (rates_list[i-1] - rates_list[i]) / rates_list[i-1] > 0.5:
-                        risk_factors.append(f"第{i}期留存率急剧下降")
+                        risk_factors.append(LocalizedInsightGenerator.format_retention_risk('sharp_decline', i))
                         break
                         
             # 检查整体低留存率
             avg_retention = summary_stats.get('avg_retention_rate', 0)
             if avg_retention < 0.1:
-                risk_factors.append("整体留存率过低")
+                risk_factors.append(LocalizedInsightGenerator.format_retention_risk('overall_low'))
                 
             # 检查留存率下降趋势
             if len(retention_result.cohorts) > 2:
@@ -1029,16 +1046,16 @@ class RetentionAnalysisEngine:
                         previous_retention = recent_cohorts[-2].retention_rates[1]
                         
                         if latest_retention < previous_retention * 0.8:
-                            risk_factors.append("最近队列留存率呈下降趋势")
+                            risk_factors.append(LocalizedInsightGenerator.format_retention_risk('declining_trend'))
                             
             if not risk_factors:
-                risk_factors.append("未发现明显的留存风险因素")
+                risk_factors.append(LocalizedInsightGenerator.format_retention_risk('no_obvious_risks'))
                 
             return risk_factors
             
         except Exception as e:
-            logger.warning(f"识别留存风险因素失败: {e}")
-            return ["风险因素分析失败"]
+            logger.warning(f"{t('retention.identify_risks_failed', '识别留存风险因素失败')}: {e}")
+            return [LocalizedInsightGenerator.format_retention_risk('no_obvious_risks')]
             
     def analyze_retention(self, events: pd.DataFrame) -> Dict[str, Any]:
         """
@@ -1054,7 +1071,7 @@ class RetentionAnalysisEngine:
             if events.empty:
                 return {
                     'status': 'error',
-                    'message': '事件数据为空',
+                    'message': t("retention.event_data_empty", "事件数据为空"),
                     'insights': [],
                     'recommendations': []
                 }
@@ -1073,40 +1090,40 @@ class RetentionAnalysisEngine:
                 # 第1个月留存率
                 if 1 in retention_rates:
                     month1_retention = retention_rates[1] * 100
-                    insights.append(f"第1个月留存率: {month1_retention:.1f}%")
+                    insights.append(LocalizedInsightGenerator.format_month1_retention_insight(month1_retention))
                     
                     if month1_retention < 20:
-                        recommendations.append("第1个月留存率较低，需要改善新用户引导体验")
+                        recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('month1_low'))
                     elif month1_retention > 40:
-                        recommendations.append("第1个月留存率表现良好，可以作为基准优化其他时期")
+                        recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('month1_good'))
                 
                 # 第3个月留存率
                 if 3 in retention_rates:
                     month3_retention = retention_rates[3] * 100
-                    insights.append(f"第3个月留存率: {month3_retention:.1f}%")
+                    insights.append(LocalizedInsightGenerator.format_month3_retention_insight(month3_retention))
                     
                     if month3_retention < 10:
-                        recommendations.append("长期留存率需要提升，考虑增加用户粘性功能")
+                        recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('month3_low'))
                 
                 # 留存趋势分析
                 if len(retention_rates) >= 3:
                     rates_list = [retention_rates[i] for i in sorted(retention_rates.keys())[:3]]
                     if rates_list[1] > rates_list[0] * 0.5:
-                        insights.append("留存率下降趋势相对平缓")
-                        recommendations.append("保持当前用户体验策略，继续监控留存表现")
+                        insights.append(LocalizedInsightGenerator.format_retention_decline_trend())
+                        recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('maintain_strategy'))
                     else:
-                        insights.append("留存率下降较快")
-                        recommendations.append("需要紧急优化用户留存策略")
+                        insights.append(LocalizedInsightGenerator.format_retention_fast_decline())
+                        recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('urgent_optimization'))
             
             # 队列分析洞察
             if retention_result and retention_result.cohorts:
                 cohort_count = len(retention_result.cohorts)
-                insights.append(f"分析了 {cohort_count} 个用户队列")
+                insights.append(LocalizedInsightGenerator.format_cohorts_analyzed_insight(cohort_count))
                 
                 if cohort_count >= 3:
-                    recommendations.append("有足够的队列数据进行趋势分析，建议定期监控队列表现")
+                    recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('sufficient_cohorts'))
                 else:
-                    recommendations.append("队列数据较少，建议积累更多数据以获得更准确的留存洞察")
+                    recommendations.append(LocalizedInsightGenerator.format_retention_recommendation('insufficient_cohorts'))
             
             return {
                 'status': 'success',
@@ -1123,7 +1140,7 @@ class RetentionAnalysisEngine:
             }
             
         except Exception as e:
-            logger.error(f"留存分析执行失败: {e}")
+            logger.error(f"{t('retention.analysis_execution_failed', '留存分析执行失败')}: {e}")
             return {
                 'status': 'error',
                 'message': str(e),
@@ -1149,7 +1166,7 @@ class RetentionAnalysisEngine:
                 max_periods=max_periods
             )
         except Exception as e:
-            logger.error(f"队列留存分析失败: {e}")
+            logger.error(f"{t('retention.cohort_analysis_failed', '队列留存分析失败')}: {e}")
             return RetentionAnalysisResult(
                 analysis_type=analysis_type,
                 cohorts=[],
@@ -1177,7 +1194,7 @@ class RetentionAnalysisEngine:
                 return result.overall_retention_rates.get(retention_days - 1, 0.0)
             return 0.0
         except Exception as e:
-            logger.error(f"留存率计算失败: {e}")
+            logger.error(f"{t('retention.retention_rate_calculation_failed', '留存率计算失败')}: {e}")
             return 0.0
     
     def analyze_user_lifecycle(self, analysis_period: int = 30) -> Dict[str, int]:
@@ -1215,7 +1232,7 @@ class RetentionAnalysisEngine:
             return lifecycle_stats
             
         except Exception as e:
-            logger.error(f"用户生命周期分析失败: {e}")
+            logger.error(f"{t('retention.lifecycle_analysis_failed', '用户生命周期分析失败')}: {e}")
             return {
                 'new_users': 0,
                 'active_users': 0,
@@ -1243,7 +1260,7 @@ class RetentionAnalysisEngine:
                 'summary_stats': result.summary_stats
             }
         except Exception as e:
-            logger.error(f"留存率分析失败: {e}")
+            logger.error(f"{t('retention.retention_rate_analysis_failed', '留存率分析失败')}: {e}")
             return {
                 'analysis_type': analysis_type,
                 'overall_retention_rates': {},
@@ -1260,12 +1277,12 @@ class RetentionAnalysisEngine:
         """
         try:
             if self.storage_manager is None:
-                return {"error": "存储管理器未初始化"}
+                return {"error": "Storage manager not initialized"}
                 
             events = self.storage_manager.get_data('events')
             
             if events.empty:
-                return {"error": "无事件数据"}
+                return {"error": t("retention.no_event_data", "无事件数据")}
                 
             # 基础统计
             total_events = len(events)
@@ -1316,5 +1333,5 @@ class RetentionAnalysisEngine:
             }
             
         except Exception as e:
-            logger.error(f"获取分析摘要失败: {e}")
+            logger.error(f"{t('retention.get_summary_failed', '获取分析摘要失败')}: {e}")
             return {"error": str(e)}

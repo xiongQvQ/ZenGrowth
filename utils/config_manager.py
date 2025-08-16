@@ -95,6 +95,18 @@ class SystemConfig:
     # API配置
     api_settings: Dict[str, Any] = None
     
+    # LLM配置 (与JSON配置文件中的llm_settings对应)
+    llm_settings: Dict[str, Any] = None
+    
+    # Google配置
+    google_settings: Dict[str, Any] = None
+    
+    # Volcano配置  
+    volcano_settings: Dict[str, Any] = None
+    
+    # 多模态配置
+    multimodal_settings: Dict[str, Any] = None
+    
     # 数据处理配置
     data_processing: Dict[str, Any] = None
     
@@ -106,33 +118,42 @@ class SystemConfig:
     
     def __post_init__(self):
         """初始化默认配置"""
-        if self.api_settings is None:
-            self.api_settings = {
-                # 提供商配置
-                'default_llm_provider': getattr(settings, 'default_llm_provider', 'google'),
+        if self.llm_settings is None:
+            self.llm_settings = {
+                'default_provider': getattr(settings, 'default_llm_provider', 'google'),
                 'enabled_providers': getattr(settings, 'enabled_providers', ['google', 'volcano']),
                 'enable_fallback': getattr(settings, 'enable_fallback', True),
-                'fallback_order': getattr(settings, 'fallback_order', ['google', 'volcano']),
-                
-                # Google配置
+                'fallback_order': getattr(settings, 'fallback_order', ['google', 'volcano'])
+            }
+            
+        if self.google_settings is None:
+            self.google_settings = {
+                'model': getattr(settings, 'llm_model', 'gemini-1.5-pro'),
+                'temperature': getattr(settings, 'llm_temperature', 0.7),
+                'max_tokens': getattr(settings, 'llm_max_tokens', 4000),
+                'timeout': 30,
+                'retries': 3
+            }
+            
+        if self.volcano_settings is None:
+            self.volcano_settings = {
+                'base_url': getattr(settings, 'ark_base_url', 'https://ark.cn-beijing.volces.com/api/v3'),
+                'model': getattr(settings, 'ark_model', 'doubao-1.5-pro-32k'),
+                'temperature': getattr(settings, 'llm_temperature', 0.7)
+            }
+            
+        if self.multimodal_settings is None:
+            self.multimodal_settings = {
+                'enabled': getattr(settings, 'enable_multimodal', True),
+                'max_image_size': getattr(settings, 'max_image_size_mb', 10),
+                'image_timeout': getattr(settings, 'image_analysis_timeout', 60),
+                'supported_formats': getattr(settings, 'supported_image_formats', ['jpg', 'jpeg', 'png'])
+            }
+            
+        if self.api_settings is None:
+            self.api_settings = {
                 'google_api_key': settings.google_api_key or '',
-                'llm_model': settings.llm_model,
-                'llm_temperature': settings.llm_temperature,
-                'llm_max_tokens': settings.llm_max_tokens,
-                
-                # Volcano配置
                 'ark_api_key': getattr(settings, 'ark_api_key', ''),
-                'ark_base_url': getattr(settings, 'ark_base_url', 'https://ark.cn-beijing.volces.com/api/v3'),
-                'ark_model': getattr(settings, 'ark_model', 'doubao-seed-1-6-250615'),
-                'ark_temperature': getattr(settings, 'llm_temperature', 0.1),
-                
-                # 多模态配置
-                'enable_multimodal': getattr(settings, 'enable_multimodal', True),
-                'max_image_size_mb': getattr(settings, 'max_image_size_mb', 10),
-                'supported_image_formats': getattr(settings, 'supported_image_formats', ['jpg', 'jpeg', 'png', 'gif', 'webp']),
-                'image_analysis_timeout': getattr(settings, 'image_analysis_timeout', 60),
-                
-                # 通用配置
                 'api_timeout': 30,
                 'max_retries': 3
             }
@@ -220,14 +241,33 @@ class ConfigManager:
         except Exception as e:
             logger.error(f"保存分析配置失败: {e}")
     
-    def _save_system_config(self, config: SystemConfig):
+    def _save_system_config(self, config):
         """保存系统配置"""
         try:
             with open(self.system_config_file, 'w', encoding='utf-8') as f:
-                json.dump(asdict(config), f, ensure_ascii=False, indent=2)
+                if isinstance(config, dict):
+                    json.dump(config, f, ensure_ascii=False, indent=2)
+                else:
+                    json.dump(asdict(config), f, ensure_ascii=False, indent=2)
             logger.info("系统配置保存成功")
         except Exception as e:
             logger.error(f"保存系统配置失败: {e}")
+    
+    def save_system_config(self, config):
+        """公共方法：保存系统配置"""
+        try:
+            # 更新内存中的配置
+            if isinstance(config, dict):
+                self.system_config = config
+            else:
+                self.system_config = config
+            
+            # 保存到文件
+            self._save_system_config(config)
+            logger.info("系统配置保存成功")
+        except Exception as e:
+            logger.error(f"保存系统配置失败: {e}")
+            raise e
     
     def get_analysis_config(self, analysis_type: Optional[str] = None) -> Dict[str, Any]:
         """获取分析配置"""
@@ -254,17 +294,56 @@ class ConfigManager:
     def get_system_config(self, config_type: Optional[str] = None) -> Dict[str, Any]:
         """获取系统配置"""
         if config_type:
-            return getattr(self.system_config, config_type, {})
-        return asdict(self.system_config)
+            if hasattr(self.system_config, config_type):
+                return getattr(self.system_config, config_type, {})
+            else:
+                # 如果system_config是dict，直接返回对应的值
+                if isinstance(self.system_config, dict):
+                    return self.system_config.get(config_type, {})
+                return {}
+        
+        # 返回完整配置
+        if hasattr(self.system_config, '__dict__') or hasattr(self.system_config, '_asdict'):
+            try:
+                return asdict(self.system_config)
+            except:
+                # 如果asdict失败，system_config可能已经是dict
+                if isinstance(self.system_config, dict):
+                    return self.system_config
+                return {}
+        elif isinstance(self.system_config, dict):
+            return self.system_config
+        else:
+            return {}
+    
+    def get_system_config_object(self) -> SystemConfig:
+        """获取系统配置对象（返回SystemConfig实例）"""
+        return self.system_config
     
     def update_system_config(self, config_type: str, config_updates: Dict[str, Any]) -> bool:
         """更新系统配置"""
         try:
             if hasattr(self.system_config, config_type):
+                # 处理dataclass对象
                 current_config = getattr(self.system_config, config_type)
                 current_config.update(config_updates)
                 setattr(self.system_config, config_type, current_config)
                 self._save_system_config(self.system_config)
+                return True
+            elif isinstance(self.system_config, dict) and config_type in self.system_config:
+                # 处理dict对象
+                current_config = self.system_config[config_type]
+                current_config.update(config_updates)
+                self.system_config[config_type] = current_config
+                
+                # 保存为dict格式
+                try:
+                    with open(self.system_config_file, 'w', encoding='utf-8') as f:
+                        json.dump(self.system_config, f, ensure_ascii=False, indent=2)
+                    logger.info("系统配置保存成功")
+                except Exception as e:
+                    logger.error(f"保存系统配置失败: {e}")
+                    return False
                 return True
             else:
                 logger.error(f"未知的配置类型: {config_type}")

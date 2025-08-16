@@ -127,7 +127,7 @@ class FunnelAnalysisMixin:
         steps = funnel.get('steps', [])
         
         if not steps:
-            return ["漏斗数据不足，无法生成洞察"]
+            return ["Insufficient funnel data, cannot generate insights"]
         
         overall_rate = funnel['overall_conversion_rate']
         if overall_rate < 0.1:

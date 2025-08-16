@@ -1,6 +1,6 @@
 """
-路径分析页面
-分析用户行为路径和流转
+Path Analysis Page
+Analyzes user behavior paths and flows
 """
 
 import streamlit as st
@@ -19,13 +19,13 @@ from utils.i18n import t
 from ui.components.common import render_no_data_warning, render_data_status_check
 
 class PathAnalysisPage:
-    """路径分析页面类"""
+    """Path analysis page class"""
     
     def __init__(self):
         self._initialize_engines()
     
     def _initialize_engines(self):
-        """初始化分析引擎和可视化组件"""
+        """Initialize analysis engines and visualization components"""
         if 'path_engine' not in st.session_state:
             st.session_state.path_engine = PathAnalysisEngine()
         if 'chart_generator' not in st.session_state:
@@ -34,107 +34,107 @@ class PathAnalysisPage:
             st.session_state.advanced_visualizer = AdvancedVisualizer()
     
     def render(self):
-        """渲染路径分析页面"""
+        """Render path analysis page"""
         from ui.state import get_state_manager
         
-        # 检查数据状态
+        # Check data status
         state_manager = get_state_manager()
         if not state_manager.is_data_loaded():
             render_no_data_warning()
             return
         
-        st.header("🛤️ " + t("pages.path_analysis.title", "路径分析"))
+        st.header(t("path_analysis", "🛤️ Path Analysis"))
         st.markdown("---")
         
-        # 分析配置面板
+        # Analysis configuration panel
         config = self._render_analysis_config()
         
-        # 执行分析按钮
-        if st.button(t('analysis.start_path_analysis', '开始路径分析'), type="primary"):
+        # Execute analysis button
+        if st.button(t('start_path_analysis', '🚀 Start Path Analysis'), type="primary"):
             self._execute_path_analysis(config)
         
-        # 显示分析结果
+        # Display analysis results
         if 'path_analysis_results' in st.session_state:
             self._render_analysis_results()
     
     def _render_analysis_config(self) -> Dict[str, Any]:
-        """渲染分析配置面板"""
-        with st.expander(t('analysis.path_config', '路径分析配置'), expanded=False):
+        """Render analysis configuration panel"""
+        with st.expander(t('analysis.path_config', 'Path Analysis Configuration'), expanded=False):
             
-            # 基础配置
+            # Basic configuration
             col1, col2, col3 = st.columns(3)
             
             with col1:
                 date_range = st.date_input(
-                    t('analysis.time_range_label', '时间范围'),
+                    t('analysis.time_range_label', 'Time Range'),
                     value=(datetime.now() - timedelta(days=30), datetime.now()),
-                    help=t('analysis.time_range_help', '选择分析的时间范围')
+                    help=t('analysis.time_range_help', 'Select time range for analysis')
                 )
             
             with col2:
                 analysis_type = st.selectbox(
-                    t('analysis.path_analysis_type', '分析类型'),
+                    t('analysis.path_analysis_type', 'Analysis Type'),
                     options=[
-                        t('analysis.session_reconstruction', '会话重构'),
-                        t('analysis.pattern_mining', '模式挖掘'),
-                        t('analysis.flow_analysis', '流程分析'),
-                        t('analysis.comprehensive_path', '综合路径分析')
+                        t('analysis.session_reconstruction', 'Session Reconstruction'),
+                        t('analysis.pattern_mining', 'Pattern Mining'),
+                        t('analysis.flow_analysis', 'Flow Analysis'),
+                        t('analysis.comprehensive_path', 'Comprehensive Path Analysis')
                     ],
                     index=3,
-                    help=t('analysis.path_type_help', '选择路径分析的类型')
+                    help=t('analysis.path_type_help', 'Select type of path analysis')
                 )
             
             with col3:
                 session_timeout = st.slider(
-                    t('analysis.session_timeout', '会话超时(分钟)'),
+                    t('analysis.session_timeout', 'Session Timeout (minutes)'),
                     min_value=5,
                     max_value=120,
                     value=30,
-                    help=t('analysis.session_timeout_help', '会话间隔超过此时间视为新会话')
+                    help=t('analysis.session_timeout_help', 'Session intervals exceeding this time are considered new sessions')
                 )
             
-            # 高级配置
-            with st.expander(t('analysis.advanced_config', '高级配置'), expanded=False):
+            # Advanced configuration
+            with st.expander(t('analysis.advanced_config', 'Advanced Configuration'), expanded=False):
                 col1, col2 = st.columns(2)
                 
                 with col1:
                     min_path_length = st.slider(
-                        t('analysis.min_path_length', '最小路径长度'),
+                        t('analysis.min_path_length', 'Minimum Path Length'),
                         min_value=1,
                         max_value=20,
                         value=2,
-                        help=t('analysis.min_path_help', '分析的最小路径步数')
+                        help=t('analysis.min_path_help', 'Minimum number of steps in analyzed paths')
                     )
                     
                     max_path_length = st.slider(
-                        t('analysis.max_path_length', '最大路径长度'),
+                        t('analysis.max_path_length', 'Maximum Path Length'),
                         min_value=3,
                         max_value=50,
                         value=15,
-                        help=t('analysis.max_path_help', '分析的最大路径步数')
+                        help=t('analysis.max_path_help', 'Maximum number of steps in analyzed paths')
                     )
                 
                 with col2:
                     min_pattern_frequency = st.slider(
-                        t('analysis.min_pattern_freq', '最小模式频次'),
+                        t('analysis.min_pattern_freq', 'Minimum Pattern Frequency'),
                         min_value=1,
                         max_value=100,
                         value=5,
-                        help=t('analysis.pattern_freq_help', '模式出现的最小次数')
+                        help=t('analysis.pattern_freq_help', 'Minimum number of times a pattern must appear')
                     )
                     
                     include_anomalies = st.checkbox(
-                        t('analysis.include_anomalies', '包含异常路径'),
+                        t('analysis.include_anomalies', 'Include Anomalous Paths'),
                         value=True,
-                        help=t('analysis.anomalies_help', '识别和分析异常用户路径')
+                        help=t('analysis.anomalies_help', 'Identify and analyze anomalous user paths')
                     )
             
-            # 特定路径分析配置
+            # Specific path analysis configuration
             specific_paths = []
-            if analysis_type in [t('analysis.flow_analysis', '流程分析'), t('analysis.comprehensive_path', '综合路径分析')]:
-                st.subheader(t('analysis.specific_path_config', '特定路径配置'))
+            if analysis_type in [t('analysis.flow_analysis', 'Flow Analysis'), t('analysis.comprehensive_path', 'Comprehensive Path Analysis')]:
+                st.subheader(t('analysis.specific_path_config', 'Specific Path Configuration'))
                 
-                # 获取可用事件类型
+                # Get available event types
                 from ui.state import get_state_manager
                 state_manager = get_state_manager()
                 data_summary = state_manager.get_data_summary()
@@ -145,23 +145,23 @@ class PathAnalysisPage:
                     
                     with col1:
                         start_events = st.multiselect(
-                            t('analysis.start_events', '起始事件'),
+                            t('analysis.start_events', 'Start Events'),
                             options=event_types,
                             default=[],
-                            help=t('analysis.start_events_help', '选择路径分析的起始事件')
+                            help=t('analysis.start_events_help', 'Select starting events for path analysis')
                         )
                     
                     with col2:
                         end_events = st.multiselect(
-                            t('analysis.end_events', '结束事件'),
+                            t('analysis.end_events', 'End Events'),
                             options=event_types,
                             default=[],
-                            help=t('analysis.end_events_help', '选择路径分析的结束事件')
+                            help=t('analysis.end_events_help', 'Select ending events for path analysis')
                         )
                     
                     specific_paths = start_events + end_events
                 else:
-                    st.warning(t('analysis.no_event_types', '暂无可用的事件类型'))
+                    st.warning(t('analysis.no_event_types', 'No available event types'))
         
         return {
             'date_range': date_range,
@@ -175,45 +175,45 @@ class PathAnalysisPage:
         }
     
     def _execute_path_analysis(self, config: Dict[str, Any]):
-        """执行路径分析"""
+        """Execute path analysis"""
         from ui.state import get_state_manager
         
-        with st.spinner(t('analysis.path_processing', '正在执行路径分析...')):
+        with st.spinner(t('analysis.path_processing', 'Executing path analysis...')):
             try:
-                # 获取数据
+                # Get data
                 state_manager = get_state_manager()
                 raw_data = state_manager.get_raw_data()
                 
                 if raw_data.empty:
-                    st.error(t('analysis.no_data', '没有可用的数据进行分析'))
+                    st.error(t('analysis.no_data', 'No data available for analysis'))
                     return
                 
-                # 初始化引擎
+                # Initialize engine
                 engine = st.session_state.path_engine
                 engine.session_timeout_minutes = config.get('session_timeout', 30)
                 engine.min_pattern_frequency = config.get('min_pattern_frequency', 5)
                 
-                # 应用时间筛选
+                # Apply time filtering
                 filtered_data = self._filter_data_by_time(raw_data, config['date_range'])
                 
-                # 执行路径分析
+                # Execute path analysis
                 progress_bar = st.progress(0)
                 status_text = st.empty()
                 
-                # 步骤1: 会话重构
-                status_text.text(t('analysis.step_session_reconstruction', '重构用户会话...'))
+                # Step 1: Session reconstruction
+                status_text.text(t('analysis.step_session_reconstruction', 'Reconstructing user sessions...'))
                 progress_bar.progress(20)
                 
                 sessions = engine.reconstruct_user_sessions(filtered_data)
                 
-                # 步骤2: 路径模式识别
-                status_text.text(t('analysis.step_pattern_identification', '识别路径模式...'))
+                # Step 2: Path pattern identification
+                status_text.text(t('analysis.step_pattern_identification', 'Identifying path patterns...'))
                 progress_bar.progress(50)
                 
                 path_patterns = engine.identify_path_patterns(sessions)
                 
-                # 步骤3: 路径挖掘
-                status_text.text(t('analysis.step_path_mining', '挖掘用户路径...'))
+                # Step 3: Path mining
+                status_text.text(t('analysis.step_path_mining', 'Mining user paths...'))
                 progress_bar.progress(70)
                 
                 mined_paths = engine.mine_user_paths(
@@ -222,17 +222,17 @@ class PathAnalysisPage:
                     max_length=config.get('max_path_length', 15)
                 )
                 
-                # 步骤4: 生成洞察
-                status_text.text(t('analysis.step_generating_insights', '生成分析洞察...'))
+                # Step 4: Generate insights
+                status_text.text(t('analysis.step_generating_insights', 'Generating analysis insights...'))
                 progress_bar.progress(90)
                 
                 insights = self._generate_path_insights(sessions, path_patterns, mined_paths)
                 
-                # 完成分析
-                status_text.text(t('analysis.step_completed', '分析完成'))
+                # Complete analysis
+                status_text.text(t('analysis.step_completed', 'Analysis completed'))
                 progress_bar.progress(100)
                 
-                # 存储分析结果
+                # Store analysis results
                 results = {
                     'sessions': sessions,
                     'path_patterns': path_patterns,
@@ -243,34 +243,34 @@ class PathAnalysisPage:
                     'analysis_time': datetime.now().isoformat()
                 }
                 
-                # 使用StateManager存储结果
+                # Use StateManager to store results
                 state_manager.set_analysis_results('path', results)
                 st.session_state.path_analysis_results = results
                 
-                st.success(t('analysis.path_complete', '✅ 路径分析完成!'))
+                st.success(t('analysis.path_complete', '✅ Path analysis completed!'))
                 
             except Exception as e:
-                st.error(f"{t('analysis.analysis_failed', '路径分析失败')}: {str(e)}")
+                st.error(f"{t('analysis.analysis_failed', 'Path analysis failed')}: {str(e)}")
                 import traceback
                 st.text(t('common.detailed_error', 'Detailed error information:'))
                 st.text(traceback.format_exc())
     
     def _filter_data_by_time(self, data: pd.DataFrame, date_range) -> pd.DataFrame:
-        """根据时间范围筛选数据"""
+        """Filter data by time range"""
         try:
             if not hasattr(date_range, '__len__') or len(date_range) != 2:
                 return data
             
             start_date, end_date = date_range
             
-            # 确保有时间列
+            # Ensure time column exists
             if 'event_datetime' not in data.columns:
                 if 'event_timestamp' in data.columns:
                     data['event_datetime'] = pd.to_datetime(data['event_timestamp'], unit='us')
                 else:
                     return data
             
-            # 筛选时间范围
+            # Filter by time range
             filtered_data = data[
                 (data['event_datetime'].dt.date >= start_date) &
                 (data['event_datetime'].dt.date <= end_date)
@@ -283,7 +283,7 @@ class PathAnalysisPage:
             return data
     
     def _generate_path_insights(self, sessions, path_patterns, mined_paths):
-        """生成路径分析洞察"""
+        """Generate path analysis insights"""
         insights = {
             'basic_stats': {},
             'pattern_insights': [],
@@ -291,13 +291,13 @@ class PathAnalysisPage:
             'recommendations': []
         }
         
-        # 基本统计
+        # Basic statistics
         if sessions:
             total_sessions = len(sessions)
             avg_path_length = np.mean([len(s.path_sequence) for s in sessions])
             max_path_length = max([len(s.path_sequence) for s in sessions])
             
-            # 处理 PathAnalysisResult 对象
+            # Process PathAnalysisResult object
             total_patterns = 0
             if path_patterns and hasattr(path_patterns, 'common_patterns'):
                 total_patterns = (
@@ -314,7 +314,7 @@ class PathAnalysisPage:
                 'total_patterns': total_patterns
             }
         
-        # 模式洞察
+        # Pattern insights
         if path_patterns and hasattr(path_patterns, 'common_patterns'):
             common_patterns = path_patterns.common_patterns
             conversion_patterns = path_patterns.conversion_paths
@@ -327,7 +327,7 @@ class PathAnalysisPage:
             if conversion_patterns:
                 insights['pattern_insights'].append(f"{t('analysis.found_conversion_patterns', 'Found {count} conversion path patterns').format(count=len(conversion_patterns))}")
         
-        # 推荐
+        # Recommendations
         insights['recommendations'] = [
             t('analysis.recommendation_optimize_paths', 'Optimize the most common user paths to improve user experience'),
             t('analysis.recommendation_analyze_anomalies', 'Analyze anomalous path patterns to discover potential user confusion points'),
@@ -337,23 +337,23 @@ class PathAnalysisPage:
         return insights
     
     def _render_analysis_results(self):
-        """渲染分析结果"""
+        """Render analysis results"""
         results = st.session_state.path_analysis_results
         
         if not results:
-            st.warning(t('analysis.no_results', '没有分析结果可显示'))
+            st.warning(t('analysis.no_results', 'No analysis results to display'))
             return
         
         st.markdown("---")
-        st.subheader("🛤️ " + t('analysis.path_results', '路径分析结果'))
+        st.subheader("🛤️ " + t('path_results', 'Path Analysis Results'))
         
-        # 创建标签页
+        # Create tabs
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "📊 " + t('analysis.overview', '概览'),
-            "🗺️ " + t('analysis.path_patterns', '路径模式'),
-            "📈 " + t('analysis.visualizations', '可视化'),
-            "🔍 " + t('analysis.sessions', '会话详情'),
-            "💡 " + t('analysis.insights', '洞察与建议')
+            "📊 " + t('overview', 'Overview'),
+            "🗺️ " + t('path_patterns', 'Path Patterns'),
+            "📈 " + t('visualizations', 'Visualizations'),
+            "🔍 " + t('sessions', 'Session Details'),
+            "💡 " + t('insights', 'Insights & Recommendations')
         ])
         
         with tab1:
@@ -372,52 +372,52 @@ class PathAnalysisPage:
             self._render_insights_and_recommendations(results)
     
     def _render_overview(self, results: Dict[str, Any]):
-        """渲染概览标签页"""
-        st.subheader("📊 " + t('analysis.key_metrics', '关键指标'))
+        """Render overview tab"""
+        st.subheader("📊 " + t('analysis.key_metrics', 'Key Metrics'))
         
         sessions = results.get('sessions', [])
         path_patterns = results.get('path_patterns', [])
         insights = results.get('insights', {})
         
         if not sessions:
-            st.info(t('analysis.no_session_data', '暂无会话数据'))
+            st.info(t('analysis.no_session_data', 'No session data available'))
             return
         
-        # 关键指标
+        # Key metrics
         col1, col2, col3, col4 = st.columns(4)
         
         basic_stats = insights.get('basic_stats', {})
         
         with col1:
             st.metric(
-                t('analysis.total_sessions', '总会话数'),
+                t('analysis.total_sessions', 'Total Sessions'),
                 f"{basic_stats.get('total_sessions', 0):,}",
-                help=t('analysis.sessions_help', '分析的用户会话总数')
+                help=t('analysis.sessions_help', 'Total number of user sessions analyzed')
             )
         
         with col2:
             st.metric(
-                t('analysis.avg_path_length', '平均路径长度'),
+                t('analysis.avg_path_length', 'Average Path Length'),
                 f"{basic_stats.get('avg_path_length', 0):.1f}",
-                help=t('analysis.path_length_help', '用户路径的平均步数')
+                help=t('analysis.path_length_help', 'Average number of steps in user paths')
             )
         
         with col3:
             st.metric(
-                t('analysis.max_path_length', '最大路径长度'),
+                t('analysis.max_path_length', 'Maximum Path Length'),
                 f"{basic_stats.get('max_path_length', 0)}",
-                help=t('analysis.max_path_help', '用户路径的最大步数')
+                help=t('analysis.max_path_help', 'Maximum number of steps in user paths')
             )
         
         with col4:
             st.metric(
-                t('analysis.total_patterns', '识别模式数'),
+                t('analysis.total_patterns', 'Identified Patterns'),
                 f"{basic_stats.get('total_patterns', 0)}",
-                help=t('analysis.patterns_help', '识别的路径模式总数')
+                help=t('analysis.patterns_help', 'Total number of identified path patterns')
             )
         
-        # 路径长度分布
-        st.subheader("📏 " + t('analysis.path_length_distribution', '路径长度分布'))
+        # Path length distribution
+        st.subheader("📏 " + t('analysis.path_length_distribution', 'Path Length Distribution'))
         
         path_lengths = [len(s.path_sequence) for s in sessions if hasattr(s, 'path_sequence') and s.path_sequence]
         
@@ -425,38 +425,38 @@ class PathAnalysisPage:
             fig = px.histogram(
                 x=path_lengths,
                 nbins=min(20, max(path_lengths)),
-                title=t('analysis.path_length_hist', '用户路径长度分布'),
-                labels={'x': t('analysis.path_length', '路径长度'), 'y': t('analysis.session_count', '会话数量')}
+                title=t('analysis.path_length_hist', 'User Path Length Distribution'),
+                labels={'x': t('analysis.path_length', 'Path Length'), 'y': t('analysis.session_count', 'Session Count')}
             )
             fig.update_layout(height=400)
             st.plotly_chart(fig, use_container_width=True)
         
-        # 会话持续时间分布
-        st.subheader("⏱️ " + t('analysis.session_duration_distribution', '会话时长分布'))
+        # Session duration distribution
+        st.subheader("⏱️ " + t('analysis.session_duration_distribution', 'Session Duration Distribution'))
         
-        durations = [s.duration_seconds / 60 for s in sessions if hasattr(s, 'duration_seconds') and s.duration_seconds and s.duration_seconds > 0]  # 转换为分钟
+        durations = [s.duration_seconds / 60 for s in sessions if hasattr(s, 'duration_seconds') and s.duration_seconds and s.duration_seconds > 0]  # Convert to minutes
         
         if durations:
             fig = px.histogram(
                 x=durations,
                 nbins=20,
-                title=t('analysis.session_duration_hist', '会话持续时间分布'),
-                labels={'x': t('analysis.duration_minutes', '持续时间(分钟)'), 'y': t('analysis.session_count', '会话数量')}
+                title=t('analysis.session_duration_hist', 'Session Duration Distribution'),
+                labels={'x': t('analysis.duration_minutes', 'Duration (minutes)'), 'y': t('analysis.session_count', 'Session Count')}
             )
             fig.update_layout(height=400)
             st.plotly_chart(fig, use_container_width=True)
     
     def _render_path_patterns(self, results: Dict[str, Any]):
-        """渲染路径模式标签页"""
-        st.subheader("🗺️ " + t('analysis.identified_patterns', '识别的路径模式'))
+        """Render path patterns tab"""
+        st.subheader("🗺️ " + t('analysis.identified_patterns', 'Identified Path Patterns'))
         
         path_patterns = results.get('path_patterns')
         
         if not path_patterns or not hasattr(path_patterns, 'common_patterns'):
-            st.info(t('analysis.no_patterns', '暂无路径模式'))
+            st.info(t('analysis.no_patterns', 'No path patterns available'))
             return
         
-        # 获取各类型模式
+        # Get patterns by type
         pattern_types = {
             'common': path_patterns.common_patterns,
             'conversion': path_patterns.conversion_paths,
@@ -464,23 +464,23 @@ class PathAnalysisPage:
             'exit': path_patterns.exit_patterns
         }
         
-        # 显示各类型模式
+        # Display patterns by type
         for pattern_type, patterns in pattern_types.items():
             if not patterns:
                 continue
                 
             if pattern_type == 'common':
-                st.subheader("🔥 " + t('analysis.common_patterns', '常见路径模式'))
+                st.subheader("🔥 " + t('analysis.common_patterns', 'Common Path Patterns'))
             elif pattern_type == 'conversion':
-                st.subheader("🎯 " + t('analysis.conversion_patterns', '转化路径模式'))
+                st.subheader("🎯 " + t('analysis.conversion_patterns', 'Conversion Path Patterns'))
             elif pattern_type == 'anomalous':
-                st.subheader("⚠️ " + t('analysis.anomalous_patterns', '异常路径模式'))
+                st.subheader("⚠️ " + t('analysis.anomalous_patterns', 'Anomalous Path Patterns'))
             elif pattern_type == 'exit':
-                st.subheader("🚪 " + t('analysis.exit_patterns', '退出路径模式'))
+                st.subheader("🚪 " + t('analysis.exit_patterns', 'Exit Path Patterns'))
             
-            # 显示模式表格
+            # Display pattern table
             pattern_data = []
-            for pattern in patterns[:10]:  # 显示前10个模式
+            for pattern in patterns[:10]:  # Display first 10 patterns
                 pattern_data.append({
                     t('analysis.path_pattern', 'Path Pattern'): ' → '.join(pattern.path_sequence),
                     t('analysis.frequency', 'Frequency'): pattern.frequency,
@@ -497,31 +497,31 @@ class PathAnalysisPage:
                     st.info(t('analysis.showing_top_patterns', 'Showing top 10 patterns, found {count} {type} patterns').format(count=len(patterns), type=pattern_type))
     
     def _render_visualizations(self, results: Dict[str, Any]):
-        """渲染可视化标签页"""
-        st.subheader("📈 " + t('analysis.path_visualizations', '路径可视化'))
+        """Render visualizations tab"""
+        st.subheader("📈 " + t('analysis.path_visualizations', 'Path Visualizations'))
         
         sessions = results.get('sessions', [])
         path_patterns = results.get('path_patterns', [])
         
         if not sessions:
-            st.info(t('analysis.no_visualization_data', '暂无可视化数据'))
+            st.info(t('analysis.no_visualization_data', 'No visualization data available'))
             return
         
-        # 路径流向图
+        # Path flow chart
         self._create_path_flow_chart(sessions)
         
-        # 模式频次图
+        # Pattern frequency chart
         if path_patterns:
             self._create_pattern_frequency_chart(path_patterns)
         
-        # 路径桑基图
+        # Path sankey diagram
         self._create_path_sankey_diagram(sessions)
     
     def _create_path_flow_chart(self, sessions):
-        """创建路径流向图"""
-        st.subheader("🌊 " + t('analysis.path_flow_chart', '路径流向图'))
+        """Create path flow chart"""
+        st.subheader("🌊 " + t('analysis.path_flow_chart', 'Path Flow Chart'))
         
-        # 统计事件转换
+        # Count event transitions
         transitions = {}
         
         for session in sessions:
@@ -534,7 +534,7 @@ class PathAnalysisPage:
                     transitions[transition] = transitions.get(transition, 0) + 1
         
         if transitions:
-            # 取前20个最常见的转换
+            # Get top 20 most common transitions
             top_transitions = sorted(transitions.items(), key=lambda x: x[1], reverse=True)[:20]
             
             transition_names = [item[0] for item in top_transitions]
@@ -544,21 +544,21 @@ class PathAnalysisPage:
                 x=transition_counts,
                 y=transition_names,
                 orientation='h',
-                title=t('analysis.top_transitions', '最常见的路径转换'),
-                labels={'x': t('analysis.transition_count', '转换次数'), 'y': t('analysis.transition', '转换')}
+                title=t('analysis.top_transitions', 'Most Common Path Transitions'),
+                labels={'x': t('analysis.transition_count', 'Transition Count'), 'y': t('analysis.transition', 'Transition')}
             )
             fig.update_layout(height=600)
             st.plotly_chart(fig, use_container_width=True)
     
     def _create_pattern_frequency_chart(self, path_patterns):
-        """创建模式频次图"""
-        st.subheader("📊 " + t('analysis.pattern_frequency_chart', '模式频次图'))
+        """Create pattern frequency chart"""
+        st.subheader("📊 " + t('analysis.pattern_frequency_chart', 'Pattern Frequency Chart'))
         
         if not path_patterns or not hasattr(path_patterns, 'common_patterns'):
-            st.info(t('analysis.no_pattern_data', '暂无模式数据'))
+            st.info(t('analysis.no_pattern_data', 'No pattern data available'))
             return
         
-        # 按类型分组统计
+        # Group statistics by type
         pattern_type_counts = {
             'common': len(path_patterns.common_patterns),
             'conversion': len(path_patterns.conversion_paths),
@@ -566,7 +566,7 @@ class PathAnalysisPage:
             'exit': len(path_patterns.exit_patterns)
         }
         
-        # 过滤掉计数为0的类型
+        # Filter out types with count 0
         pattern_type_counts = {k: v for k, v in pattern_type_counts.items() if v > 0}
         
         if pattern_type_counts:
@@ -576,11 +576,11 @@ class PathAnalysisPage:
             fig = px.pie(
                 values=type_counts,
                 names=type_names,
-                title=t('analysis.pattern_type_distribution', '路径模式类型分布')
+                title=t('analysis.pattern_type_distribution', 'Path Pattern Type Distribution')
             )
             st.plotly_chart(fig, use_container_width=True)
         
-        # 显示频次最高的模式
+        # Display patterns with highest frequency
         all_patterns = (
             path_patterns.common_patterns + 
             path_patterns.conversion_paths + 
@@ -599,40 +599,40 @@ class PathAnalysisPage:
                 x=frequencies,
                 y=pattern_names,
                 orientation='h',
-                title=t('analysis.top_pattern_frequencies', '频次最高的路径模式'),
-                labels={'x': t('analysis.frequency', '频次'), 'y': t('analysis.pattern', '模式')}
+                title=t('analysis.top_pattern_frequencies', 'Highest Frequency Path Patterns'),
+                labels={'x': t('analysis.frequency', 'Frequency'), 'y': t('analysis.pattern', 'Pattern')}
             )
             fig.update_layout(height=500)
             st.plotly_chart(fig, use_container_width=True)
     
     def _create_path_sankey_diagram(self, sessions):
-        """创建路径桑基图"""
-        st.subheader("🌊 " + t('analysis.path_sankey', '路径桑基图'))
+        """Create path sankey diagram"""
+        st.subheader("🌊 " + t('analysis.path_sankey', 'Path Sankey Diagram'))
         
-        # 限制显示步数避免图表过于复杂
+        # Limit display steps to avoid overly complex charts
         max_steps = 5
         
-        # 统计每步的事件分布
+        # Count event distribution for each step
         step_events = {}
         
         for session in sessions:
             if hasattr(session, 'path_sequence') and session.path_sequence:
-                path = session.path_sequence[:max_steps]  # 只取前几步
+                path = session.path_sequence[:max_steps]  # Only take first few steps
                 for step, event in enumerate(path):
                     if step not in step_events:
                         step_events[step] = {}
                     step_events[step][event] = step_events[step].get(event, 0) + 1
         
         if len(step_events) > 1:
-            # 构建桑基图数据
+            # Build sankey diagram data
             all_events = set()
             for step_data in step_events.values():
                 all_events.update(step_data.keys())
             
-            # 为每个事件创建唯一标识
+            # Create unique identifier for each event
             event_to_id = {event: i for i, event in enumerate(all_events)}
             
-            # 构建连接
+            # Build connections
             source = []
             target = []
             value = []
@@ -647,14 +647,14 @@ class PathAnalysisPage:
                         source.append(event_to_id[current_event])
                         target.append(event_to_id[next_event])
                     
-            # 统计连接权重
+            # Count connection weights
             connections = {}
             if source and target and len(source) == len(target):
                 for s, target_val in zip(source, target):
                     key = (s, target_val)
                     connections[key] = connections.get(key, 0) + 1
             
-            # 准备最终数据
+            # Prepare final data
             final_source = []
             final_target = []
             final_value = []
@@ -663,13 +663,13 @@ class PathAnalysisPage:
                 for connection_key, weight in connections.items():
                     if isinstance(connection_key, tuple) and len(connection_key) == 2:
                         s, target_node = connection_key
-                        if weight > 1:  # 只显示出现多次的连接
+                        if weight > 1:  # Only show connections that appear multiple times
                             final_source.append(s)
                             final_target.append(target_node)
                             final_value.append(weight)
             
             if final_source:
-                # 创建桑基图
+                # Create sankey diagram
                 fig = go.Figure(data=[go.Sankey(
                     node=dict(
                         pad=15,
@@ -685,7 +685,7 @@ class PathAnalysisPage:
                 )])
                 
                 fig.update_layout(
-                    title_text=t('analysis.user_path_flow', '用户路径流向'),
+                    title_text=t('analysis.user_path_flow', 'User Path Flow'),
                     font_size=10,
                     height=500
                 )
@@ -693,21 +693,21 @@ class PathAnalysisPage:
                 st.plotly_chart(fig, use_container_width=True)
     
     def _render_session_details(self, results: Dict[str, Any]):
-        """渲染会话详情标签页"""
-        st.subheader("🔍 " + t('analysis.session_details', '会话详情'))
+        """Render session details tab"""
+        st.subheader("🔍 " + t('analysis.session_details', 'Session Details'))
         
         sessions = results.get('sessions', [])
         
         if not sessions:
-            st.info(t('analysis.no_session_details', '暂无会话详情'))
+            st.info(t('analysis.no_session_details', 'No session details available'))
             return
         
-        # 会话筛选
+        # Session filtering
         col1, col2 = st.columns(2)
         
         with col1:
             min_length = st.slider(
-                t('analysis.filter_min_length', '最小路径长度'),
+                t('analysis.filter_min_length', 'Minimum Path Length'),
                 min_value=1,
                 max_value=20,
                 value=1,
@@ -716,14 +716,14 @@ class PathAnalysisPage:
         
         with col2:
             max_length = st.slider(
-                t('analysis.filter_max_length', '最大路径长度'),
+                t('analysis.filter_max_length', 'Maximum Path Length'),
                 min_value=2,
                 max_value=50,
                 value=20,
                 key='session_filter_max'
             )
         
-        # 筛选会话
+        # Filter sessions
         filtered_sessions = [
             s for s in sessions 
             if min_length <= len(s.path_sequence) <= max_length
@@ -731,9 +731,9 @@ class PathAnalysisPage:
         
         st.info(t('analysis.showing_sessions', 'Showing {shown} sessions (out of {total} total)').format(shown=len(filtered_sessions), total=len(sessions)))
         
-        # 显示会话样本
+        # Display session samples
         session_data = []
-        for i, session in enumerate(filtered_sessions[:20]):  # 显示前20个会话
+        for i, session in enumerate(filtered_sessions[:20]):  # Display first 20 sessions
             path_text = ' → '.join(session.path_sequence)
             session_data.append({
                 t('analysis.session_id', 'Session ID'): session.session_id,
@@ -753,38 +753,38 @@ class PathAnalysisPage:
             st.info(t('analysis.showing_top_sessions', 'Showing top 20 sessions, filtered {count} sessions').format(count=len(filtered_sessions)))
     
     def _render_insights_and_recommendations(self, results: Dict[str, Any]):
-        """渲染洞察与建议标签页"""
-        st.subheader("💡 " + t('analysis.insights_and_recommendations', '洞察与建议'))
+        """Render insights and recommendations tab"""
+        st.subheader("💡 " + t('analysis.insights_and_recommendations', 'Insights & Recommendations'))
         
         insights = results.get('insights', {})
         
-        # 模式洞察
+        # Pattern insights
         pattern_insights = insights.get('pattern_insights', [])
         if pattern_insights:
-            st.subheader("🔍 " + t('analysis.pattern_insights', '模式洞察'))
+            st.subheader("🔍 " + t('analysis.pattern_insights', 'Pattern Insights'))
             for insight in pattern_insights:
                 st.info(insight)
         
-        # 流程洞察
+        # Flow insights
         flow_insights = insights.get('flow_insights', [])
         if flow_insights:
-            st.subheader("🌊 " + t('analysis.flow_insights', '流程洞察'))
+            st.subheader("🌊 " + t('analysis.flow_insights', 'Flow Insights'))
             for insight in flow_insights:
                 st.success(insight)
         
-        # 优化建议
+        # Optimization recommendations
         recommendations = insights.get('recommendations', [])
         if recommendations:
-            st.subheader("📋 " + t('analysis.optimization_recommendations', '优化建议'))
+            st.subheader("📋 " + t('analysis.optimization_recommendations', 'Optimization Recommendations'))
             for i, recommendation in enumerate(recommendations, 1):
                 st.write(f"**{i}.** {recommendation}")
         
-        # 基于数据的额外洞察
+        # Additional data-based insights
         sessions = results.get('sessions', [])
         if sessions:
-            st.subheader("📊 " + t('analysis.additional_insights', '额外洞察'))
+            st.subheader("📊 " + t('analysis.additional_insights', 'Additional Insights'))
             
-            # 计算一些额外的统计信息
+            # Calculate some additional statistical information
             total_sessions = len(sessions)
             conversion_sessions = len([s for s in sessions if s.conversions > 0])
             avg_conversions = np.mean([s.conversions for s in sessions])
@@ -796,7 +796,7 @@ class PathAnalysisPage:
                 st.metric(t('analysis.avg_conversions', 'Average Conversions'), f"{avg_conversions:.2f}")
             
             with col2:
-                # 路径多样性分析
+                # Path diversity analysis
                 unique_paths = set()
                 for session in sessions:
                     path_str = ' → '.join(session.path_sequence)
@@ -805,13 +805,13 @@ class PathAnalysisPage:
                 path_diversity = len(unique_paths) / total_sessions if total_sessions > 0 else 0
                 st.metric(t('analysis.path_diversity', 'Path Diversity'), f"{path_diversity:.2f}")
                 
-                # 平均页面浏览数
+                # Average page views
                 avg_page_views = np.mean([s.page_views for s in sessions])
                 st.metric(t('analysis.avg_page_views', 'Average Page Views'), f"{avg_page_views:.1f}")
 
 
 @render_data_status_check
 def show_path_analysis_page():
-    """显示路径分析页面 - 保持向后兼容"""
+    """Display path analysis page - maintain backward compatibility"""
     page = PathAnalysisPage()
     page.render()

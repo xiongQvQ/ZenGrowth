@@ -22,6 +22,24 @@ warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 logger = logging.getLogger(__name__)
 
+# Import i18n function
+try:
+    from utils.i18n import t
+    from utils.i18n_enhanced import LocalizedInsightGenerator
+except ImportError:
+    # Fallback if i18n is not available
+    def t(key: str, default: str = None) -> str:
+        return default or key
+    
+    # Fallback LocalizedInsightGenerator
+    class LocalizedInsightGenerator:
+        @staticmethod
+        def format_segmentation_summary(segment_count: int, method: str, user_count: int) -> str:
+            return f"Completed {method} user segmentation, created {segment_count} segments for {user_count} users"
+        @staticmethod
+        def format_features_extracted(feature_count: int, user_count: int) -> str:
+            return f"Extracted {feature_count} features for {user_count} users"
+
 
 @dataclass
 class UserFeatures:
@@ -79,7 +97,7 @@ class UserSegmentationEngine:
             'engagement': self._engagement_segmentation
         }
         
-        logger.info("用户分群引擎初始化完成")
+        logger.info(t('user_segmentation.logs.engine_initialized', 'User segmentation engine initialized successfully'))
         
     def extract_user_features(self,
                             events: Optional[pd.DataFrame] = None,
@@ -100,7 +118,7 @@ class UserSegmentationEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 events = self.storage_manager.get_data('events')
 
             if users is None and self.storage_manager:
@@ -111,24 +129,24 @@ class UserSegmentationEngine:
 
             # 安全地检查事件数据是否为空
             if events is None:
-                logger.warning("事件数据为None，无法提取用户特征")
+                logger.warning(t('user_segmentation.logs.event_data_none', 'Event data is None, cannot extract user features'))
                 return []
             elif isinstance(events, list):
                 if len(events) == 0:
-                    logger.warning("事件数据列表为空，无法提取用户特征")
+                    logger.warning(t('user_segmentation.logs.event_data_list_empty', 'Event data list is empty, cannot extract user features'))
                     return []
                 # 如果是列表，尝试转换为DataFrame
                 try:
                     events = pd.DataFrame(events)
                 except Exception as e:
-                    logger.error(f"无法将事件数据列表转换为DataFrame: {e}")
+                    logger.error(t('user_segmentation.logs.cannot_convert_list_to_dataframe', 'Cannot convert event data list to DataFrame: {error}').format(error=e))
                     return []
             elif isinstance(events, pd.DataFrame):
                 if events.empty:
-                    logger.warning("事件数据DataFrame为空，无法提取用户特征")
+                    logger.warning(t('user_segmentation.logs.event_data_dataframe_empty', 'Event data DataFrame is empty, cannot extract user features'))
                     return []
             else:
-                logger.error(f"事件数据类型不支持: {type(events)}")
+                logger.error(t('user_segmentation.logs.unsupported_event_data_type', 'Unsupported event data type: {type}').format(type=type(events)))
                 return []
                 
             # 确保有时间列
@@ -136,7 +154,7 @@ class UserSegmentationEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("缺少时间字段")
+                    raise ValueError("Missing time field")
                     
             user_features_list = []
             
@@ -191,11 +209,11 @@ class UserSegmentationEngine:
                 
                 user_features_list.append(user_features)
                 
-            logger.info(f"提取了{len(user_features_list)}个用户的特征")
+            logger.info(LocalizedInsightGenerator.format_features_extracted(len(user_features_list), len(user_features_list)))
             return user_features_list
             
         except Exception as e:
-            logger.error(f"提取用户特征失败: {e}")
+            logger.error(t('user_segmentation.logs.feature_extraction_failed', 'User feature extraction failed: {error}').format(error=e))
             raise
             
     def _extract_behavioral_features(self, user_events: pd.DataFrame) -> Dict[str, float]:
@@ -242,7 +260,7 @@ class UserSegmentationEngine:
             return features
             
         except Exception as e:
-            logger.warning(f"提取行为特征失败: {e}")
+            logger.warning(t('user_segmentation.logs.behavioral_features_extraction_failed', 'Behavioral features extraction failed: {error}').format(error=e))
             return {}
             
     def _extract_demographic_features(self, user_info: Optional[pd.Series], user_events: pd.DataFrame) -> Dict[str, Any]:
@@ -507,7 +525,7 @@ class UserSegmentationEngine:
                 user_features = self.extract_user_features()
                 
             if not user_features:
-                logger.warning("用户特征为空，无法进行分群")
+                logger.warning(t('user_segmentation.logs.user_features_empty', 'User features are empty, cannot perform segmentation'))
                 return SegmentationResult(
                     segments=[],
                     segmentation_method=method,
@@ -520,7 +538,7 @@ class UserSegmentationEngine:
             feature_matrix, feature_names, user_ids = self._prepare_feature_matrix(user_features)
             
             if feature_matrix.shape[0] == 0:
-                logger.warning("特征矩阵为空，无法进行分群")
+                logger.warning(t('user_segmentation.logs.feature_matrix_empty', 'Feature matrix is empty, cannot perform segmentation'))
                 return SegmentationResult(
                     segments=[],
                     segmentation_method=method,
@@ -531,7 +549,7 @@ class UserSegmentationEngine:
                 
             # 执行分群
             if method not in self.segmentation_methods:
-                raise ValueError(f"不支持的分群方法: {method}")
+                raise ValueError(t('user_segmentation.errors.unsupported_method', 'Unsupported segmentation method: {method}').format(method=method))
                 
             cluster_labels = self.segmentation_methods[method](
                 feature_matrix, n_clusters, **kwargs
@@ -563,11 +581,11 @@ class UserSegmentationEngine:
                 segment_comparison=segment_comparison
             )
             
-            logger.info(f"使用{method}方法创建了{len(segments)}个用户分群")
+            logger.info(LocalizedInsightGenerator.format_segmentation_summary(len(segments), method, len(user_features)))
             return result
             
         except Exception as e:
-            logger.error(f"创建用户分群失败: {e}")
+            logger.error(t('user_segmentation.logs.segmentation_creation_failed', 'User segmentation creation failed: {error}').format(error=e))
             raise
             
     def _prepare_feature_matrix(self, user_features: List[UserFeatures]) -> Tuple[np.ndarray, List[str], List[str]]:
@@ -964,30 +982,32 @@ class UserSegmentationEngine:
             
             # 预定义的分群名称模板
             name_templates = {
-                ('high', 'high'): '高价值活跃用户',
-                ('high', 'medium'): '高活跃中价值用户',
-                ('high', 'low'): '高活跃低价值用户',
-                ('medium', 'high'): '中活跃高价值用户',
-                ('medium', 'medium'): '中等用户',
-                ('medium', 'low'): '中活跃低价值用户',
-                ('low', 'high'): '低活跃高价值用户',
-                ('low', 'medium'): '低活跃中价值用户',
-                ('low', 'low'): '低价值用户'
+                ('high', 'high'): t('user_segmentation.segment_names.high_engagement_high_value', '高价值活跃用户'),
+                ('high', 'medium'): t('user_segmentation.segment_names.high_engagement_medium_value', '高活跃中价值用户'),
+                ('high', 'low'): t('user_segmentation.segment_names.high_engagement_low_value', '高活跃低价值用户'),
+                ('medium', 'high'): t('user_segmentation.segment_names.medium_engagement_high_value', '中活跃高价值用户'),
+                ('medium', 'medium'): t('user_segmentation.segment_names.medium_engagement_medium_value', '中等用户'),
+                ('medium', 'low'): t('user_segmentation.segment_names.medium_engagement_low_value', '中活跃低价值用户'),
+                ('low', 'high'): t('user_segmentation.segment_names.low_engagement_high_value', '低活跃高价值用户'),
+                ('low', 'medium'): t('user_segmentation.segment_names.low_engagement_medium_value', '低活跃中价值用户'),
+                ('low', 'low'): t('user_segmentation.segment_names.low_engagement_low_value', '低价值用户')
             }
             
-            name = name_templates.get((engagement_level, value_level), f'用户群{segment_id}')
+            name = name_templates.get((engagement_level, value_level), t('user_segmentation.segment_names.default_segment', '用户群{segment_id}').format(segment_id=segment_id))
             
             # 如果有关键特征，可以进一步细化名称
             if key_characteristics:
                 main_characteristic = key_characteristics[0]
-                if '高' in main_characteristic:
-                    name = name.replace('用户', f'{main_characteristic}用户')
+                # Use language-agnostic logic for characteristic enhancement
+                if engagement_level == 'high' and value_level == 'high':
+                    # Already handled in name_templates
+                    pass
                     
             return name
             
         except Exception as e:
             logger.warning(f"生成分群名称失败: {e}")
-            return f'用户群{segment_id}'
+            return t('user_segmentation.segment_names.default_segment', '用户群{segment_id}').format(segment_id=segment_id)
             
     def _calculate_feature_importance(self,
                                     feature_matrix: np.ndarray,
@@ -1211,22 +1231,26 @@ class UserSegmentationEngine:
             largest_segment = max(segmentation_result.segments, key=lambda s: s.user_count)
             smallest_segment = min(segmentation_result.segments, key=lambda s: s.user_count)
             
-            insights.append(f"最大分群是'{largest_segment.segment_name}'，包含{largest_segment.user_count}个用户")
-            insights.append(f"最小分群是'{smallest_segment.segment_name}'，包含{smallest_segment.user_count}个用户")
+            insights.append(t('user_segmentation.insights.largest_segment', "最大分群是'{segment_name}'，包含{user_count}个用户").format(
+                segment_name=largest_segment.segment_name, user_count=largest_segment.user_count))
+            insights.append(t('user_segmentation.insights.smallest_segment', "最小分群是'{segment_name}'，包含{user_count}个用户").format(
+                segment_name=smallest_segment.segment_name, user_count=smallest_segment.user_count))
             
             # 分析价值分群
             high_value_segments = [s for s in segmentation_result.segments 
                                  if s.segment_profile.get('value_level') == 'high']
             if high_value_segments:
                 high_value_users = sum(s.user_count for s in high_value_segments)
-                insights.append(f"高价值用户分群包含{high_value_users}个用户，占总用户的{high_value_users/total_users*100:.1f}%")
+                insights.append(t('user_segmentation.insights.high_value_users', "高价值用户分群包含{user_count}个用户，占总用户的{percentage:.1f}%").format(
+                    user_count=high_value_users, percentage=high_value_users/total_users*100))
                 
             # 分析参与度分群
             high_engagement_segments = [s for s in segmentation_result.segments 
                                       if s.segment_profile.get('engagement_level') == 'high']
             if high_engagement_segments:
                 high_engagement_users = sum(s.user_count for s in high_engagement_segments)
-                insights.append(f"高参与度用户分群包含{high_engagement_users}个用户，占总用户的{high_engagement_users/total_users*100:.1f}%")
+                insights.append(t('user_segmentation.insights.high_engagement_users', "高参与度用户分群包含{user_count}个用户，占总用户的{percentage:.1f}%").format(
+                    user_count=high_engagement_users, percentage=high_engagement_users/total_users*100))
                 
             analysis['segment_insights'] = insights
             
@@ -1238,18 +1262,18 @@ class UserSegmentationEngine:
             silhouette_score = quality_metrics.get('silhouette_score', 0)
             
             if silhouette_score < 0.3:
-                recommendations.append("分群质量较低，建议调整分群参数或特征选择")
+                recommendations.append(t('user_segmentation.recommendations.low_quality_adjust_parameters', "分群质量较低，建议调整分群参数或特征选择"))
             elif silhouette_score > 0.7:
-                recommendations.append("分群质量良好，可以基于此进行精准营销")
+                recommendations.append(t('user_segmentation.recommendations.good_quality_precision_marketing', "分群质量良好，可以基于此进行精准营销"))
                 
             # 基于分群分布的建议
             size_uniformity = quality_metrics.get('size_uniformity', 0)
             if size_uniformity < 0.5:
-                recommendations.append("分群大小不均匀，建议重新调整分群数量")
+                recommendations.append(t('user_segmentation.recommendations.size_uneven_readjust_clusters', "分群大小不均匀，建议重新调整分群数量"))
                 
             # 基于高价值用户的建议
             if high_value_segments:
-                recommendations.append("重点关注高价值用户分群，制定专门的保留策略")
+                recommendations.append(t('user_segmentation.recommendations.focus_high_value_retention', "重点关注高价值用户分群，制定专门的保留策略"))
                 
             analysis['recommendations'] = recommendations
             
@@ -1272,13 +1296,13 @@ class UserSegmentationEngine:
             SegmentationResult: 分群结果对象
         """
         try:
-            logger.info(f"执行用户聚类: 方法={method}, 聚类数={n_clusters}")
+            logger.info(t('user_segmentation.logs.execute_clustering', 'Executing user clustering: method={method}, clusters={n_clusters}').format(method=method, n_clusters=n_clusters))
 
             # 首先提取用户特征
             user_features = self.extract_user_features()
 
             if not user_features:
-                logger.warning("无法提取用户特征，返回空分群结果")
+                logger.warning(t('user_segmentation.logs.cannot_extract_features_empty_result', 'Cannot extract user features, returning empty segmentation result'))
                 return SegmentationResult(
                     segments=[],
                     segmentation_method=method,
@@ -1295,11 +1319,11 @@ class UserSegmentationEngine:
                 **kwargs
             )
 
-            logger.info(f"聚类完成，生成{len(result.segments)}个分群")
+            logger.info(t('user_segmentation.logs.clustering_completed', 'Clustering completed, generated {segment_count} segments').format(segment_count=len(result.segments)))
             return result
 
         except Exception as e:
-            logger.error(f"执行聚类分析失败: {e}")
+            logger.error(t('user_segmentation.logs.clustering_analysis_failed', 'Clustering analysis failed: {error}').format(error=e))
             # 返回空的分群结果而不是抛出异常
             return SegmentationResult(
                 segments=[],
@@ -1325,7 +1349,7 @@ class UserSegmentationEngine:
             if events is None:
                 return {
                     'status': 'error',
-                    'message': '事件数据为None',
+                    'message': t('user_segmentation.errors.event_data_none', '事件数据为None'),
                     'insights': [],
                     'recommendations': []
                 }
@@ -1333,7 +1357,7 @@ class UserSegmentationEngine:
                 if len(events) == 0:
                     return {
                         'status': 'error',
-                        'message': '事件数据列表为空',
+                        'message': t('user_segmentation.errors.event_data_list_empty', '事件数据列表为空'),
                         'insights': [],
                         'recommendations': []
                     }
@@ -1343,7 +1367,7 @@ class UserSegmentationEngine:
                 except Exception as e:
                     return {
                         'status': 'error',
-                        'message': f'无法转换事件数据: {e}',
+                        'message': t('user_segmentation.errors.cannot_convert_event_data', '无法转换事件数据: {error}').format(error=e),
                         'insights': [],
                         'recommendations': []
                     }
@@ -1351,14 +1375,14 @@ class UserSegmentationEngine:
                 if events.empty:
                     return {
                         'status': 'error',
-                        'message': '事件数据DataFrame为空',
+                        'message': t('user_segmentation.errors.event_data_dataframe_empty', '事件数据DataFrame为空'),
                         'insights': [],
                         'recommendations': []
                     }
             else:
                 return {
                     'status': 'error',
-                    'message': f'不支持的事件数据类型: {type(events)}',
+                    'message': t('user_segmentation.errors.unsupported_event_data_type', '不支持的事件数据类型: {type}').format(type=type(events)),
                     'insights': [],
                     'recommendations': []
                 }
@@ -1369,7 +1393,7 @@ class UserSegmentationEngine:
             if not user_features:
                 return {
                     'status': 'error',
-                    'message': '无法提取用户特征',
+                    'message': t('user_segmentation.errors.cannot_extract_user_features', '无法提取用户特征'),
                     'insights': [],
                     'recommendations': []
                 }
@@ -1387,30 +1411,30 @@ class UserSegmentationEngine:
             
             if segmentation_result and segmentation_result.segments:
                 segment_count = len(segmentation_result.segments)
-                insights.append(f"识别出 {segment_count} 个用户分群")
+                insights.append(t('user_segmentation.insights.segments_identified', 'Identified {segment_count} user segments').format(segment_count=segment_count))
                 
                 # 分析各分群特征
                 for segment in segmentation_result.segments:
                     user_count = segment.user_count
                     segment_name = segment.segment_name
                     
-                    insights.append(f"{segment_name}: {user_count} 个用户")
+                    insights.append(LocalizedInsightGenerator.format_segment_profile(segment_name, user_count, user_count/len(user_features)*100))
                     
                     # 基于分群大小给出建议
                     if user_count < len(user_features) * 0.05:  # 小于5%的用户
-                        recommendations.append(f"{segment_name}用户群体较小，可考虑与其他群体合并或制定精准营销策略")
+                        recommendations.append(LocalizedInsightGenerator.format_segmentation_recommendation('small_segment_merge_or_target', segment_name))
                     elif user_count > len(user_features) * 0.4:  # 超过40%的用户
-                        recommendations.append(f"{segment_name}用户群体较大，建议进一步细分以提供更精准的服务")
+                        recommendations.append(LocalizedInsightGenerator.format_segmentation_recommendation('large_segment_further_subdivide', segment_name))
                 
                 # 分析分群质量
                 if hasattr(segmentation_result, 'quality_metrics'):
                     silhouette_score = segmentation_result.quality_metrics.get('silhouette_score', 0)
                     if silhouette_score > 0.5:
-                        insights.append("分群质量良好，用户群体区分明显")
-                        recommendations.append("可以基于当前分群制定差异化的用户策略")
+                        insights.append(t('user_segmentation.insights.segment_quality_good', 'Segmentation quality is good, user groups are well-distinguished'))
+                        recommendations.append(LocalizedInsightGenerator.format_segmentation_recommendation('good_quality_precision_marketing'))
                     elif silhouette_score < 0.3:
-                        insights.append("分群质量一般，用户群体重叠较多")
-                        recommendations.append("建议调整分群参数或尝试其他分群方法")
+                        insights.append(t('user_segmentation.insights.segment_quality_poor', 'Segmentation quality is average, user groups have significant overlap'))
+                        recommendations.append(t('user_segmentation.recommendations.adjust_parameters_or_try_other_methods', 'Recommend adjusting segmentation parameters or trying other segmentation methods'))
                 
                 # 识别高价值用户群
                 high_value_segments = []
@@ -1421,15 +1445,18 @@ class UserSegmentationEngine:
                         high_value_segments.append(segment.segment_name)
                 
                 if high_value_segments:
-                    insights.append(f"高价值用户群: {', '.join(high_value_segments)}")
-                    recommendations.append("重点关注高价值用户群的需求，提供优质服务以提升留存")
+                    insights.append(t('user_segmentation.insights.high_value_user_segments', 'High-value user segments: {segment_names}').format(
+                        segment_names=', '.join(high_value_segments)))
+                    recommendations.append(LocalizedInsightGenerator.format_segmentation_recommendation('focus_high_value_needs_quality_service'))
             
             # 特征重要性分析
             if user_features:
                 sample_features = user_features[0].behavioral_features
                 important_features = sorted(sample_features.keys())[:3]
-                insights.append(f"主要区分特征: {', '.join(important_features)}")
-                recommendations.append("基于主要区分特征设计个性化的用户体验")
+                insights.append(t('user_segmentation.insights.main_distinguishing_features', 'Main distinguishing features: {features}').format(
+                    features=', '.join(important_features)))
+                recommendations.append(t('user_segmentation.recommendations.design_personalized_experience_based_on_features', 
+                    'Design personalized user experience based on main distinguishing features'))
             
             return {
                 'status': 'success',
@@ -1447,7 +1474,7 @@ class UserSegmentationEngine:
             }
             
         except Exception as e:
-            logger.error(f"用户分群分析执行失败: {e}")
+            logger.error(t('user_segmentation.logs.user_segmentation_analysis_failed', 'User segmentation analysis execution failed: {error}').format(error=e))
             return {
                 'status': 'error',
                 'message': str(e),
@@ -1464,27 +1491,27 @@ class UserSegmentationEngine:
         """
         try:
             if self.storage_manager is None:
-                return {"error": "存储管理器未初始化"}
+                return {"error": "Storage manager not initialized"}
                 
             events = self.storage_manager.get_data('events')
             users = self.storage_manager.get_data('users')
 
             # 安全地检查事件数据
             if events is None:
-                return {"error": "事件数据为None"}
+                return {"error": t('user_segmentation.errors.event_data_none', "事件数据为None")}
             elif isinstance(events, list):
                 if len(events) == 0:
-                    return {"error": "事件数据列表为空"}
+                    return {"error": t('user_segmentation.errors.event_data_list_empty', "事件数据列表为空")}
                 # 尝试转换为DataFrame
                 try:
                     events = pd.DataFrame(events)
                 except Exception as e:
-                    return {"error": f"无法转换事件数据: {e}"}
+                    return {"error": t('user_segmentation.errors.cannot_convert_event_data', "无法转换事件数据: {error}").format(error=e)}
             elif isinstance(events, pd.DataFrame):
                 if events.empty:
-                    return {"error": "事件数据DataFrame为空"}
+                    return {"error": t('user_segmentation.errors.event_data_dataframe_empty', "事件数据DataFrame为空")}
             else:
-                return {"error": f"不支持的事件数据类型: {type(events)}"}
+                return {"error": t('user_segmentation.errors.unsupported_event_data_type', "不支持的事件数据类型: {type}").format(type=type(events))}
                 
             # 基础统计
             total_events = len(events)
@@ -1555,7 +1582,7 @@ class UserSegmentationEngine:
             if not segments:
                 return {
                     'status': 'error',
-                    'message': '没有可用的分群数据',
+                    'message': t('user_segmentation.errors.no_available_segment_data', '没有可用的分群数据'),
                     'profiles': {},
                     'recommendations': []
                 }
@@ -1566,14 +1593,14 @@ class UserSegmentationEngine:
                 profiles[segment_id] = {
                     'size': len(segment_data.get('user_ids', [])) if isinstance(segment_data, dict) else 0,
                     'characteristics': [
-                        '高活跃度用户',
-                        '购买意向强烈',
-                        '价格敏感度中等'
+                        t('user_segmentation.characteristics.high_activity_users', '高活跃度用户'),
+                        t('user_segmentation.characteristics.strong_purchase_intention', '购买意向强烈'),
+                        t('user_segmentation.characteristics.medium_price_sensitivity', '价格敏感度中等')
                     ],
                     'behavior_patterns': [
-                        '频繁浏览商品',
-                        '关注促销活动',
-                        '移动端使用为主'
+                        t('user_segmentation.characteristics.frequent_product_browsing', '频繁浏览商品'),
+                        t('user_segmentation.characteristics.attention_to_promotions', '关注促销活动'),
+                        t('user_segmentation.characteristics.mainly_mobile_usage', '移动端使用为主')
                     ],
                     'value_metrics': {
                         'avg_session_duration': 180,
@@ -1588,12 +1615,12 @@ class UserSegmentationEngine:
                 'largest_segment': max(profiles.keys(), key=lambda k: profiles[k]['size']) if profiles else None,
                 'most_valuable_segment': max(profiles.keys(), key=lambda k: profiles[k]['value_metrics']['conversion_rate']) if profiles else None,
                 'insights': [
-                    '用户群体特征明显',
-                    '不同群体行为差异显著'
+                    t('user_segmentation.insights.user_group_characteristics_obvious', '用户群体特征明显'),
+                    t('user_segmentation.insights.user_group_behavior_differences_significant', '不同群体行为差异显著')
                 ],
                 'recommendations': [
-                    '针对不同群体制定个性化营销策略',
-                    '优化高价值群体的用户体验'
+                    t('user_segmentation.recommendations.develop_personalized_strategies_for_segments', '针对不同群体制定个性化营销策略'),
+                    t('user_segmentation.recommendations.optimize_high_value_user_experience', '优化高价值群体的用户体验')
                 ]
             }
             

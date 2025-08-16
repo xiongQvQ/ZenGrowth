@@ -110,7 +110,7 @@ class FunnelAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 
                 # 计算时间范围
                 end_date = datetime.now()
@@ -127,7 +127,7 @@ class FunnelAnalysisEngine:
                 events = self.storage_manager.get_data('events', filters)
             
             if events.empty:
-                logger.warning("事件数据为空，无法进行漏斗分析")
+                logger.warning("Event data is empty, cannot perform funnel analysis")
                 return self._create_empty_result(funnel_name, funnel_steps)
             
             # 确保有时间列
@@ -135,7 +135,7 @@ class FunnelAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("数据中缺少时间字段")
+                    raise ValueError("Missing time field in data")
             
             # 计算漏斗指标
             result = self._calculate_funnel_metrics(events, funnel_steps, funnel_name)

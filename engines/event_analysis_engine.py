@@ -17,6 +17,10 @@ from scipy import stats
 from scipy.stats import chi2_contingency
 import warnings
 
+# Import internationalization support
+from utils.i18n import t
+from utils.i18n_enhanced import LocalizedInsightGenerator
+
 # 忽略统计计算中的警告
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
@@ -107,7 +111,7 @@ class EventAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                     
                 filters = {}
                 if event_types:
@@ -118,7 +122,7 @@ class EventAnalysisEngine:
                 events = self.storage_manager.get_data('events', filters)
                 
             if events.empty:
-                logger.warning("事件数据为空，无法进行频次分析")
+                logger.warning("Event data is empty, cannot perform frequency analysis")
                 return {}
                 
             results = {}
@@ -213,7 +217,7 @@ class EventAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                     
                 filters = {}
                 if event_types:
@@ -222,7 +226,7 @@ class EventAnalysisEngine:
                 events = self.storage_manager.get_data('events', filters)
                 
             if events.empty:
-                logger.warning("事件数据为空，无法进行趋势分析")
+                logger.warning("Event data is empty, cannot perform trend analysis")
                 return {}
                 
             # 确保有时间列
@@ -230,7 +234,7 @@ class EventAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("缺少时间字段")
+                    raise ValueError("Missing time field")
                     
             results = {}
             
@@ -290,7 +294,7 @@ class EventAnalysisEngine:
                 # 将微秒时间戳转换为datetime
                 events_with_time['event_datetime'] = pd.to_datetime(events_with_time['event_timestamp'], unit='us')
             elif 'event_datetime' not in events_with_time.columns:
-                raise ValueError("数据中缺少时间信息：需要event_datetime或event_timestamp列")
+                raise ValueError("Missing time information in data: event_datetime or event_timestamp column required")
 
             events_with_time['date'] = events_with_time['event_datetime'].dt.date
             
@@ -313,7 +317,7 @@ class EventAnalysisEngine:
             elif normalized_granularity == 'monthly':
                 time_col = events_with_time['event_datetime'].dt.to_period('M').dt.start_time.dt.date
             else:
-                raise ValueError(f"不支持的时间粒度: {granularity} (支持的格式: daily/日, weekly/周, monthly/月)")
+                raise ValueError(f"Unsupported time granularity: {granularity} (支持的格式: daily/日, weekly/周, monthly/月)")
                 
             # 聚合数据
             agg_data = events_with_time.groupby(time_col).agg({
@@ -501,7 +505,7 @@ class EventAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                     
                 filters = {}
                 if event_types:
@@ -510,7 +514,7 @@ class EventAnalysisEngine:
                 events = self.storage_manager.get_data('events', filters)
                 
             if events.empty:
-                logger.warning("事件数据为空，无法进行关联性分析")
+                logger.warning("Event data is empty, cannot perform correlation analysis")
                 return []
                 
             # 确保有时间列
@@ -518,7 +522,7 @@ class EventAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("缺少时间字段")
+                    raise ValueError("Missing time field")
                     
             results = []
             unique_events = events['event_name'].unique()
@@ -754,7 +758,7 @@ class EventAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 events = self.storage_manager.get_data('events')
                 
             if users is None and self.storage_manager:
@@ -764,7 +768,7 @@ class EventAnalysisEngine:
                 sessions = self.storage_manager.get_data('sessions')
                 
             if events.empty:
-                logger.warning("事件数据为空，无法识别关键事件")
+                logger.warning("Event data is empty, cannot identify key events")
                 return []
                 
             results = []
@@ -1025,28 +1029,28 @@ class EventAnalysisEngine:
         reasons = []
         
         if user_engagement_impact > 70:
-            reasons.append("用户参与度极高，是核心用户行为")
+            reasons.append(LocalizedInsightGenerator.format_event_reason('very_high_engagement'))
         elif user_engagement_impact > 50:
-            reasons.append("用户参与度较高，具有重要价值")
+            reasons.append(LocalizedInsightGenerator.format_event_reason('high_engagement'))
             
         if conversion_impact > 70:
-            reasons.append("对用户转化有显著正面影响")
+            reasons.append(LocalizedInsightGenerator.format_event_reason('high_conversion_impact'))
         elif conversion_impact > 50:
-            reasons.append("与用户转化行为密切相关")
+            reasons.append(LocalizedInsightGenerator.format_event_reason('moderate_conversion_impact'))
             
         if retention_impact > 70:
-            reasons.append("显著提升用户留存率")
+            reasons.append(LocalizedInsightGenerator.format_event_reason('high_retention_impact'))
         elif retention_impact > 50:
-            reasons.append("对用户留存有积极影响")
+            reasons.append(LocalizedInsightGenerator.format_event_reason('moderate_retention_impact'))
             
         if event_type in self.conversion_events:
-            reasons.append("属于核心转化事件")
+            reasons.append(LocalizedInsightGenerator.format_event_reason('conversion_event'))
             
         if event_type in self.engagement_events:
-            reasons.append("属于重要参与度事件")
+            reasons.append(LocalizedInsightGenerator.format_event_reason('engagement_event'))
             
         if not reasons:
-            reasons.append("基础用户行为事件")
+            reasons.append(LocalizedInsightGenerator.format_event_reason('basic_event'))
             
         return reasons
         
@@ -1085,10 +1089,11 @@ class EventAnalysisEngine:
             # 基于频次分析生成洞察
             if frequency_results:
                 top_events = sorted(frequency_results.items(), key=lambda x: x[1].total_count if hasattr(x[1], 'total_count') else 0, reverse=True)[:3]
-                insights.append(f"最活跃的事件类型: {', '.join([event for event, _ in top_events])}")
+                event_types = [event for event, _ in top_events]
+                insights.append(LocalizedInsightGenerator.format_event_activity_insight(event_types))
                 
                 if len(frequency_results) > 5:
-                    recommendations.append("考虑重点关注高频事件的优化，提升用户体验")
+                    recommendations.append(LocalizedInsightGenerator.format_high_frequency_recommendation())
             
             # 基于趋势分析生成洞察
             if trend_results:
@@ -1096,8 +1101,8 @@ class EventAnalysisEngine:
                                    if (hasattr(data, 'trend_direction') and data.trend_direction == 'increasing') or 
                                       (isinstance(data, dict) and data.get('trend_direction') == 'increasing')]
                 if increasing_trends:
-                    insights.append(f"呈上升趋势的事件: {', '.join(increasing_trends[:3])}")
-                    recommendations.append("继续优化上升趋势的功能，扩大其影响力")
+                    insights.append(LocalizedInsightGenerator.format_trend_insight(increasing_trends))
+                    recommendations.append(LocalizedInsightGenerator.format_trend_recommendation())
             
             # 基于关联性分析生成洞察
             if correlation_results:
@@ -1115,13 +1120,13 @@ class EventAnalysisEngine:
                                 strong_correlations.append(f"{pair[0]}-{pair[1]}")
                 
                 if strong_correlations:
-                    insights.append(f"发现强关联事件对: {', '.join(strong_correlations[:2])}")
-                    recommendations.append("利用事件关联性设计用户引导流程")
+                    insights.append(LocalizedInsightGenerator.format_correlation_insight(strong_correlations))
+                    recommendations.append(LocalizedInsightGenerator.format_correlation_recommendation())
             
             # 基于关键事件生成洞察
             if key_events:
-                insights.append(f"识别出 {len(key_events)} 个关键转化事件")
-                recommendations.append("重点监控和优化关键转化事件的表现")
+                insights.append(LocalizedInsightGenerator.format_key_events_insight(len(key_events)))
+                recommendations.append(LocalizedInsightGenerator.format_key_events_recommendation())
             
             return {
                 'status': 'success',
@@ -1171,7 +1176,7 @@ class EventAnalysisEngine:
         """
         try:
             if self.storage_manager is None:
-                return {"error": "存储管理器未初始化"}
+                return {"error": "Storage manager not initialized"}
                 
             events = self.storage_manager.get_data('events')
             

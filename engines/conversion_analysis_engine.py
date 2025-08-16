@@ -18,6 +18,37 @@ warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 logger = logging.getLogger(__name__)
 
+# 导入增强的国际化功能
+try:
+    from utils.i18n_enhanced import t, LocalizedInsightGenerator
+except ImportError:
+    try:
+        from utils.i18n import t
+        # 创建简单的洞察生成器作为回退
+        class LocalizedInsightGenerator:
+            @staticmethod
+            def format_performance_insight(funnel_name: str, conversion_rate: float, is_best: bool = True) -> str:
+                prefix = "Best" if is_best else "Worst"
+                return f"{prefix} performing funnel is {funnel_name} with conversion rate of {conversion_rate:.1%}"
+            
+            @staticmethod
+            def format_bottleneck_recommendation(step_name: str) -> str:
+                return f"Focus on optimizing {step_name} step, which is a common bottleneck across multiple funnels"
+    except ImportError:
+        # 如果导入失败，提供一个简单的回退函数
+        def t(key: str, default: str = None, **kwargs) -> str:
+            return default or key
+        
+        class LocalizedInsightGenerator:
+            @staticmethod
+            def format_performance_insight(funnel_name: str, conversion_rate: float, is_best: bool = True) -> str:
+                prefix = "Best" if is_best else "Worst"
+                return f"{prefix} performing funnel is {funnel_name} with conversion rate of {conversion_rate:.1%}"
+            
+            @staticmethod
+            def format_bottleneck_recommendation(step_name: str) -> str:
+                return f"Focus on optimizing {step_name} step, which is a common bottleneck across multiple funnels"
+
 
 @dataclass
 class FunnelStep:
@@ -98,7 +129,7 @@ class ConversionAnalysisEngine:
             'add_to_cart', 'add_payment_info', 'subscribe'
         }
         
-        logger.info("转化分析引擎初始化完成")
+        logger.info(t('conversion_analysis.init.completed', '转化分析引擎初始化完成'))
         
     def build_conversion_funnel(self,
                               events: Optional[pd.DataFrame] = None,
@@ -121,11 +152,11 @@ class ConversionAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 events = self.storage_manager.get_data('events')
                 
             if events.empty:
-                logger.warning("事件数据为空，无法构建转化漏斗")
+                logger.warning("Event data is empty, cannot build conversion funnel")
                 return ConversionFunnel(
                     funnel_name=funnel_name,
                     steps=[],
@@ -137,20 +168,20 @@ class ConversionAnalysisEngine:
                 )
                 
             if not funnel_steps:
-                raise ValueError("必须提供漏斗步骤")
+                raise ValueError("Funnel steps must be provided")
                 
             # 确保有时间列
             if 'event_datetime' not in events.columns:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("缺少时间字段")
+                    raise ValueError("Missing time field")
                     
             # 筛选相关事件
             funnel_events = events[events['event_name'].isin(funnel_steps)].copy()
             
             if funnel_events.empty:
-                logger.warning(f"没有找到漏斗步骤相关的事件: {funnel_steps}")
+                logger.warning(f"No events found for funnel steps: {funnel_steps}")
                 return ConversionFunnel(
                     funnel_name=funnel_name,
                     steps=[],
@@ -204,11 +235,11 @@ class ConversionAnalysisEngine:
                 bottleneck_step=bottleneck_step
             )
             
-            logger.info(f"构建转化漏斗 '{funnel_name}' 完成，整体转化率: {overall_conversion_rate:.3f}")
+            logger.info(f"{t('conversion_analysis.funnel.build_completed', '构建转化漏斗')} '{funnel_name}' {t('conversion_analysis.funnel.completed', '完成')}，{t('conversion_analysis.funnel.overall_rate', '整体转化率')}: {overall_conversion_rate:.3f}")
             return funnel
             
         except Exception as e:
-            logger.error(f"构建转化漏斗失败: {e}")
+            logger.error(f"{t('conversion_analysis.funnel.build_failed', '构建转化漏斗失败')}: {e}")
             raise
             
     def _analyze_user_journeys(self,
@@ -244,7 +275,7 @@ class ConversionAnalysisEngine:
             return user_journeys
             
         except Exception as e:
-            logger.warning(f"分析用户旅程失败: {e}")
+            logger.warning(f"{t('conversion_analysis.journey.analysis_failed', '分析用户旅程失败')}: {e}")
             return {}
             
     def _analyze_single_user_journey(self,
@@ -334,7 +365,7 @@ class ConversionAnalysisEngine:
             }
             
         except Exception as e:
-            logger.warning(f"分析单用户旅程失败: {e}")
+            logger.warning(f"{t('conversion_analysis.journey.single_user_failed', '分析单用户旅程失败')}: {e}")
             return None
             
     def _build_funnel_steps(self,
@@ -412,7 +443,7 @@ class ConversionAnalysisEngine:
             return funnel_step_objects
             
         except Exception as e:
-            logger.warning(f"构建漏斗步骤失败: {e}")
+            logger.warning(f"{t('conversion_analysis.funnel.build_steps_failed', '构建漏斗步骤失败')}: {e}")
             return []
             
     def _identify_bottleneck_step(self, funnel_steps: List[FunnelStep]) -> Optional[str]:
@@ -441,7 +472,7 @@ class ConversionAnalysisEngine:
             return bottleneck_step
             
         except Exception as e:
-            logger.warning(f"识别瓶颈步骤失败: {e}")
+            logger.warning(f"{t('conversion_analysis.funnel.identify_bottleneck_failed', '识别瓶颈步骤失败')}: {e}")
             return None
             
     def calculate_conversion_rates(self,
@@ -461,11 +492,11 @@ class ConversionAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 events = self.storage_manager.get_data('events')
                 
             if events.empty:
-                logger.warning("事件数据为空，无法计算转化率")
+                logger.warning(t('conversion_analysis.data.empty_events', '事件数据为空，无法计算转化率'))
                 return ConversionAnalysisResult(
                     funnels=[],
                     conversion_metrics={},
@@ -488,7 +519,7 @@ class ConversionAnalysisEngine:
                     if funnel.steps:  # 只添加有效的漏斗
                         funnels.append(funnel)
                 except Exception as e:
-                    logger.warning(f"构建漏斗 {funnel_name} 失败: {e}")
+                    logger.warning(f"{t('conversion_analysis.funnel.build_failed', '构建漏斗')} {funnel_name} {t('common.failed', '失败')}: {e}")
                     continue
                     
             # 计算转化指标
@@ -511,11 +542,11 @@ class ConversionAnalysisEngine:
                 segment_analysis=segment_analysis
             )
             
-            logger.info(f"完成转化分析，包含{len(funnels)}个漏斗")
+            logger.info(f"{t('conversion_analysis.analysis.completed', '完成转化分析')}，{t('conversion_analysis.analysis.funnel_count', '包含')}{len(funnels)}{t('conversion_analysis.analysis.funnels_unit', '个漏斗')}")
             return result
             
         except Exception as e:
-            logger.error(f"计算转化率失败: {e}")
+            logger.error(f"{t('conversion_analysis.calculation.failed', '计算转化率失败')}: {e}")
             raise
             
     def _calculate_conversion_metrics(self,
@@ -566,7 +597,7 @@ class ConversionAnalysisEngine:
             return metrics
             
         except Exception as e:
-            logger.warning(f"计算转化指标失败: {e}")
+            logger.warning(f"{t('conversion_analysis.metrics.calculation_failed', '计算转化指标失败')}: {e}")
             return {}
             
     def _analyze_bottlenecks(self, funnels: List[ConversionFunnel]) -> Dict[str, Any]:
@@ -623,7 +654,7 @@ class ConversionAnalysisEngine:
             return bottleneck_analysis
             
         except Exception as e:
-            logger.warning(f"分析瓶颈失败: {e}")
+            logger.warning(f"{t('conversion_analysis.bottleneck.analysis_failed', '分析瓶颈失败')}: {e}")
             return {}
             
     def _analyze_conversion_times(self, funnels: List[ConversionFunnel]) -> Dict[str, Any]:
@@ -683,15 +714,15 @@ class ConversionAnalysisEngine:
                         
             if all_step_times:
                 slowest_step = max(all_step_times, key=lambda x: x['time'])
-                insights.append(f"最慢的转换步骤是 {slowest_step['funnel']} 漏斗中的 {slowest_step['step']}，"
-                              f"平均需要 {slowest_step['time']/60:.1f} 分钟")
+                insights.append(f"{t('conversion_analysis.time.slowest_step', '最慢的转换步骤是')} {slowest_step['funnel']} {t('conversion_analysis.time.funnel_in', '漏斗中的')} {slowest_step['step']}，"
+                              f"{t('conversion_analysis.time.average_time', '平均需要')} {slowest_step['time']/60:.1f} {t('conversion_analysis.time.minutes', '分钟')}")
                 
             time_analysis['time_insights'] = insights
             
             return time_analysis
             
         except Exception as e:
-            logger.warning(f"分析转化时间失败: {e}")
+            logger.warning(f"{t('conversion_analysis.time.analysis_failed', '分析转化时间失败')}: {e}")
             return {}
             
     def _analyze_conversion_segments(self,
@@ -769,7 +800,7 @@ class ConversionAnalysisEngine:
             return segment_analysis
             
         except Exception as e:
-            logger.warning(f"分析转化分段失败: {e}")
+            logger.warning(f"{t('conversion_analysis.segmentation.analysis_failed', '分析转化分段失败')}: {e}")
             return {}
             
     def identify_drop_off_points(self,
@@ -789,7 +820,7 @@ class ConversionAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 events = self.storage_manager.get_data('events')
                 
             if not funnel_steps:
@@ -841,11 +872,11 @@ class ConversionAnalysisEngine:
                     key=lambda x: x['drop_off_rate']
                 )
                 insights.append(
-                    f"最严重的流失点是 {worst_drop_off['step_name']}，"
-                    f"流失率达到 {worst_drop_off['drop_off_rate']*100:.1f}%"
+                    f"{t('conversion_analysis.drop_off.worst_point', '最严重的流失点是')} {worst_drop_off['step_name']}，"
+                    f"{t('conversion_analysis.drop_off.rate_reached', '流失率达到')} {worst_drop_off['drop_off_rate']*100:.1f}%"
                 )
             else:
-                insights.append("未发现严重的流失点，转化流程相对顺畅")
+                insights.append(t('conversion_analysis.drop_off.no_serious_points', '未发现严重的流失点，转化流程相对顺畅'))
                 
             # 分析整体流失模式
             total_entered = funnel.total_users_entered
@@ -854,8 +885,8 @@ class ConversionAnalysisEngine:
             if total_entered > 0:
                 overall_drop_off = (total_entered - total_converted) / total_entered
                 insights.append(
-                    f"整体流失率为 {overall_drop_off*100:.1f}%，"
-                    f"共有 {total_entered - total_converted} 用户在转化过程中流失"
+                    f"{t('conversion_analysis.drop_off.overall_rate', '整体流失率为')} {overall_drop_off*100:.1f}%，"
+                    f"{t('conversion_analysis.drop_off.total_lost', '共有')} {total_entered - total_converted} {t('conversion_analysis.drop_off.users_lost', '用户在转化过程中流失')}"
                 )
                 
             drop_off_analysis['drop_off_insights'] = insights
@@ -863,7 +894,7 @@ class ConversionAnalysisEngine:
             return drop_off_analysis
             
         except Exception as e:
-            logger.error(f"识别流失点失败: {e}")
+            logger.error(f"{t('conversion_analysis.drop_off.identification_failed', '识别流失点失败')}: {e}")
             raise    
         
     def create_user_conversion_journeys(self,
@@ -883,14 +914,14 @@ class ConversionAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 events = self.storage_manager.get_data('events')
                 
             if not funnel_steps:
                 funnel_steps = self.predefined_funnels['purchase_funnel']
                 
             if events.empty:
-                logger.warning("事件数据为空，无法创建用户转化旅程")
+                logger.warning("Event data is empty, cannot create user conversion journeys")
                 return []
                 
             # 确保有时间列
@@ -898,7 +929,7 @@ class ConversionAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("缺少时间字段")
+                    raise ValueError("Missing time field")
                     
             journeys = []
             
@@ -914,11 +945,11 @@ class ConversionAnalysisEngine:
                 if journey:
                     journeys.append(journey)
                     
-            logger.info(f"创建了{len(journeys)}个用户转化旅程")
+            logger.info(f"{t('conversion_analysis.journey.created', '创建了')}{len(journeys)}{t('conversion_analysis.journey.user_journeys', '个用户转化旅程')}")
             return journeys
             
         except Exception as e:
-            logger.error(f"创建用户转化旅程失败: {e}")
+            logger.error(f"{t('conversion_analysis.journey.creation_failed', '创建用户转化旅程失败')}: {e}")
             raise
             
     def _create_single_user_journey(self,
@@ -997,7 +1028,7 @@ class ConversionAnalysisEngine:
             )
             
         except Exception as e:
-            logger.warning(f"创建用户 {user_id} 转化旅程失败: {e}")
+            logger.warning(f"{t('conversion_analysis.journey.user_creation_failed', '创建用户')} {user_id} {t('conversion_analysis.journey.creation_failed', '转化旅程失败')}: {e}")
             return None
             
     def analyze_conversion_attribution(self,
@@ -1017,11 +1048,11 @@ class ConversionAnalysisEngine:
             # 获取数据
             if events is None:
                 if self.storage_manager is None:
-                    raise ValueError("未提供事件数据且存储管理器未初始化")
+                    raise ValueError("Event data not provided and storage manager not initialized")
                 events = self.storage_manager.get_data('events')
                 
             if events.empty:
-                logger.warning("事件数据为空，无法进行转化归因分析")
+                logger.warning("Event data is empty, cannot perform conversion attribution analysis")
                 return {}
                 
             # 确保有时间列
@@ -1029,7 +1060,7 @@ class ConversionAnalysisEngine:
                 if 'event_timestamp' in events.columns:
                     events['event_datetime'] = pd.to_datetime(events['event_timestamp'], unit='us')
                 else:
-                    raise ValueError("缺少时间字段")
+                    raise ValueError("Missing time field")
                     
             attribution_analysis = {
                 'first_touch_attribution': {},
@@ -1091,7 +1122,7 @@ class ConversionAnalysisEngine:
                     attribution_analysis['first_touch_attribution'].items(),
                     key=lambda x: x[1]
                 )
-                insights.append(f"首次接触归因中，{top_first_touch[0]} 贡献了 {top_first_touch[1]} 次转化")
+                insights.append(f"{t('conversion_analysis.attribution.first_touch', '首次接触归因中')}，{top_first_touch[0]} {t('conversion_analysis.attribution.contributed', '贡献了')} {top_first_touch[1]} {t('conversion_analysis.attribution.conversions', '次转化')}")
                 
             # 分析最后接触归因
             if attribution_analysis['last_touch_attribution']:
@@ -1099,14 +1130,14 @@ class ConversionAnalysisEngine:
                     attribution_analysis['last_touch_attribution'].items(),
                     key=lambda x: x[1]
                 )
-                insights.append(f"最后接触归因中，{top_last_touch[0]} 贡献了 {top_last_touch[1]} 次转化")
+                insights.append(f"{t('conversion_analysis.attribution.last_touch', '最后接触归因中')}，{top_last_touch[0]} {t('conversion_analysis.attribution.contributed', '贡献了')} {top_last_touch[1]} {t('conversion_analysis.attribution.conversions', '次转化')}")
                 
             attribution_analysis['attribution_insights'] = insights
             
             return attribution_analysis
             
         except Exception as e:
-            logger.error(f"转化归因分析失败: {e}")
+            logger.error(f"{t('conversion_analysis.attribution.analysis_failed', '转化归因分析失败')}: {e}")
             raise
             
     def get_conversion_insights(self,
@@ -1129,7 +1160,7 @@ class ConversionAnalysisEngine:
             }
             
             if not conversion_result.funnels:
-                insights['recommendations'].append("数据不足，建议收集更多转化相关数据")
+                insights['recommendations'].append(t('conversion_analysis.recommendations.insufficient_data', '数据不足，建议收集更多转化相关数据'))
                 return insights
                 
             # 关键指标
@@ -1153,7 +1184,7 @@ class ConversionAnalysisEngine:
                             'funnel': funnel.funnel_name,
                             'bottleneck_step': funnel.bottleneck_step,
                             'conversion_rate': bottleneck_step_obj.conversion_rate,
-                            'improvement_potential': f"提升 {funnel.bottleneck_step} 步骤可能带来显著改善"
+                            'improvement_potential': f"{t('conversion_analysis.improvement.boost_step', '提升')} {funnel.bottleneck_step} {t('conversion_analysis.improvement.potential', '步骤可能带来显著改善')}"
                         })
                         
             # 性能洞察
@@ -1161,10 +1192,18 @@ class ConversionAnalysisEngine:
             worst_funnel = min(conversion_result.funnels, key=lambda f: f.overall_conversion_rate)
             
             insights['performance_insights'].append(
-                f"表现最好的漏斗是 {best_funnel.funnel_name}，转化率为 {best_funnel.overall_conversion_rate:.3f}"
+                LocalizedInsightGenerator.format_performance_insight(
+                    best_funnel.funnel_name, 
+                    best_funnel.overall_conversion_rate, 
+                    is_best=True
+                )
             )
             insights['performance_insights'].append(
-                f"表现最差的漏斗是 {worst_funnel.funnel_name}，转化率为 {worst_funnel.overall_conversion_rate:.3f}"
+                LocalizedInsightGenerator.format_performance_insight(
+                    worst_funnel.funnel_name,
+                    worst_funnel.overall_conversion_rate,
+                    is_best=False
+                )
             )
             
             # 生成建议
@@ -1175,15 +1214,17 @@ class ConversionAnalysisEngine:
             if bottleneck_analysis.get('common_bottlenecks'):
                 most_common_bottleneck = bottleneck_analysis['common_bottlenecks'][0]
                 recommendations.append(
-                    f"重点优化 {most_common_bottleneck['step']} 步骤，它是多个漏斗的共同瓶颈"
+                    LocalizedInsightGenerator.format_bottleneck_recommendation(
+                        most_common_bottleneck['step']
+                    )
                 )
                 
             # 基于转化率的建议
             avg_conversion_rate = insights['key_metrics']['avg_conversion_rate']
             if avg_conversion_rate < 0.1:
-                recommendations.append("整体转化率较低，建议全面审查用户体验和转化流程")
+                recommendations.append(t('conversion_analysis.recommendations.low_overall_rate', '整体转化率较低，建议全面审查用户体验和转化流程'))
             elif avg_conversion_rate < 0.3:
-                recommendations.append("转化率有提升空间，建议重点优化关键转化步骤")
+                recommendations.append(t('conversion_analysis.recommendations.room_for_improvement', '转化率有提升空间，建议重点优化关键转化步骤'))
                 
             # 基于时间分析的建议
             time_analysis = conversion_result.time_analysis
@@ -1195,7 +1236,7 @@ class ConversionAnalysisEngine:
             return insights
             
         except Exception as e:
-            logger.error(f"获取转化分析洞察失败: {e}")
+            logger.error(f"{t('conversion_analysis.insights.get_failed', '获取转化分析洞察失败')}: {e}")
             return {}
             
     def analyze_conversion_funnel(self, events: Optional[pd.DataFrame] = None, funnel_steps: List[str] = None, date_range: Optional[Tuple[str, str]] = None) -> Dict[str, Any]:
@@ -1213,7 +1254,7 @@ class ConversionAnalysisEngine:
             if events is None or events.empty:
                 return {
                     'status': 'error',
-                    'message': '事件数据为空',
+                    'message': t('conversion_analysis.errors.empty_events', '事件数据为空'),
                     'insights': [],
                     'recommendations': []
                 }
@@ -1229,26 +1270,26 @@ class ConversionAnalysisEngine:
                 # 分析每个漏斗
                 for funnel in conversion_result.funnels:
                     overall_rate = funnel.overall_conversion_rate * 100
-                    insights.append(f"{funnel.funnel_name}整体转化率: {overall_rate:.1f}%")
+                    insights.append(f"{funnel.funnel_name}{t('conversion_analysis.insights.overall_rate', '整体转化率')}: {overall_rate:.1f}%")
                     
                     # 识别瓶颈步骤
                     if funnel.bottleneck_step:
-                        insights.append(f"{funnel.funnel_name}瓶颈步骤: {funnel.bottleneck_step}")
-                        recommendations.append(f"重点优化{funnel.bottleneck_step}步骤以提升整体转化率")
+                        insights.append(f"{funnel.funnel_name}{t('conversion_analysis.insights.bottleneck_step', '瓶颈步骤')}: {funnel.bottleneck_step}")
+                        recommendations.append(f"{t('conversion_analysis.recommendations.optimize_step', '重点优化')}{funnel.bottleneck_step}{t('conversion_analysis.recommendations.to_improve_overall', '步骤以提升整体转化率')}")
                     
                     # 分析各步骤转化率
                     low_conversion_steps = [step for step in funnel.steps if step.conversion_rate < 0.3]
                     if low_conversion_steps:
                         step_names = [step.step_name for step in low_conversion_steps]
-                        recommendations.append(f"以下步骤转化率较低，需要优化: {', '.join(step_names)}")
+                        recommendations.append(f"{t('conversion_analysis.recommendations.low_conversion_steps', '以下步骤转化率较低，需要优化')}: {', '.join(step_names)}")
                 
                 # 整体转化分析
                 avg_conversion = sum(f.overall_conversion_rate for f in conversion_result.funnels) / len(conversion_result.funnels)
                 if avg_conversion < 0.1:
-                    recommendations.append("整体转化率偏低，建议全面审查用户体验流程")
+                    recommendations.append(t('conversion_analysis.recommendations.overall_rate_low', '整体转化率偏低，建议全面审查用户体验流程'))
                 elif avg_conversion > 0.3:
-                    insights.append("转化表现良好，可以作为优化基准")
-                    recommendations.append("保持当前优秀的转化策略，并考虑扩展到其他场景")
+                    insights.append(t('conversion_analysis.insights.good_performance', '转化表现良好，可以作为优化基准'))
+                    recommendations.append(t('conversion_analysis.recommendations.maintain_strategy', '保持当前优秀的转化策略，并考虑扩展到其他场景'))
             
             # 分析转化用户特征
             conversion_events = events[events['event_name'].isin(self.conversion_events)]
@@ -1257,12 +1298,12 @@ class ConversionAnalysisEngine:
                 total_users = events['user_pseudo_id'].nunique()
                 conversion_user_rate = conversion_users / total_users * 100
                 
-                insights.append(f"转化用户占比: {conversion_user_rate:.1f}%")
+                insights.append(f"{t('conversion_analysis.insights.user_percentage', '转化用户占比')}: {conversion_user_rate:.1f}%")
                 
                 if conversion_user_rate < 10:
-                    recommendations.append("转化用户比例较低，需要提升产品吸引力和转化引导")
+                    recommendations.append(t('conversion_analysis.recommendations.low_user_ratio', '转化用户比例较低，需要提升产品吸引力和转化引导'))
                 elif conversion_user_rate > 30:
-                    recommendations.append("转化用户比例良好，可以重点关注提升转化深度")
+                    recommendations.append(t('conversion_analysis.recommendations.good_user_ratio', '转化用户比例良好，可以重点关注提升转化深度'))
             
             return {
                 'status': 'success',
@@ -1279,7 +1320,7 @@ class ConversionAnalysisEngine:
             }
             
         except Exception as e:
-            logger.error(f"转化分析执行失败: {e}")
+            logger.error(f"{t('conversion_analysis.execution.failed', '转化分析执行失败')}: {e}")
             return {
                 'status': 'error',
                 'message': str(e),
@@ -1296,12 +1337,12 @@ class ConversionAnalysisEngine:
         """
         try:
             if self.storage_manager is None:
-                return {"error": "存储管理器未初始化"}
+                return {"error": "Storage manager not initialized"}
                 
             events = self.storage_manager.get_data('events')
             
             if events.empty:
-                return {"error": "无事件数据"}
+                return {"error": t('conversion_analysis.errors.no_event_data', '无事件数据')}
                 
             # 基础统计
             total_events = len(events)
@@ -1356,7 +1397,7 @@ class ConversionAnalysisEngine:
             }
             
         except Exception as e:
-            logger.error(f"获取分析摘要失败: {e}")
+            logger.error(f"{t('conversion_analysis.summary.get_failed', '获取分析摘要失败')}: {e}")
             return {"error": str(e)}
     
     def analyze_conversion_paths(self, target_event: str = 'purchase', date_range: Optional[Tuple[str, str]] = None) -> Dict[str, Any]:
@@ -1377,7 +1418,7 @@ class ConversionAnalysisEngine:
             if events.empty:
                 return {
                     'status': 'error',
-                    'message': '事件数据为空',
+                    'message': t('conversion_analysis.errors.empty_events', '事件数据为空'),
                     'top_paths': [],
                     'path_conversion_rates': {},
                     'recommendations': []
@@ -1397,17 +1438,17 @@ class ConversionAnalysisEngine:
                     'search_path': 0.18
                 },
                 'insights': [
-                    '搜索路径转化率最高',
-                    '直接购买路径用户量最大'
+                    t('conversion_analysis.mock.search_path_highest', '搜索路径转化率最高'),
+                    t('conversion_analysis.mock.direct_purchase_largest', '直接购买路径用户量最大')
                 ],
                 'recommendations': [
-                    '优化搜索功能以提升整体转化',
-                    '简化直接购买流程'
+                    t('conversion_analysis.mock.optimize_search', '优化搜索功能以提升整体转化'),
+                    t('conversion_analysis.mock.simplify_purchase', '简化直接购买流程')
                 ]
             }
             
         except Exception as e:
-            logger.error(f"转化路径分析失败: {e}")
+            logger.error(f"{t('conversion_analysis.path.analysis_failed', '转化路径分析失败')}: {e}")
             return {
                 'status': 'error',
                 'message': str(e),
