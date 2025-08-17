@@ -295,6 +295,8 @@ CPU_LIMIT=1.0                                   # CPU limit
 - Maximum file size: 100MB per file
 - Automatic data validation and cleaning
 
+![GA4 Data Upload](imgs/GA4data_upload.jpg)
+
 ### 2. Analysis Features
 
 #### 🎯 Event Analysis
@@ -303,11 +305,15 @@ CPU_LIMIT=1.0                                   # CPU limit
 - Event timeline visualization
 - Anomaly detection
 
+![Event Analysis](imgs/even_analysis.jpg)
+
 #### 📈 Retention Analysis
 - User retention rate calculation
 - Retention heatmap visualization
 - Churn prediction
 - Retention improvement recommendations
+
+![Retention Analysis](imgs/retention_analysis.jpg)
 
 #### 🔄 Conversion Analysis
 - Conversion funnel construction
@@ -315,17 +321,23 @@ CPU_LIMIT=1.0                                   # CPU limit
 - Multi-channel conversion comparison
 - Conversion optimization recommendations
 
+![Conversion Analysis](imgs/conversion_analysis.jpg)
+
 #### 👥 User Segmentation
 - Behavior-based user segmentation
 - RFM model analysis
 - User value assessment
 - Personalization strategy recommendations
 
+![User Segmentation](imgs/user_segmentation.jpg)
+
 #### 🛤️ Path Analysis
 - User behavior path mining
 - Critical path identification
 - Path optimization recommendations
 - Navigation pattern analysis
+
+![Path Analysis](imgs/path_analysis.jpg)
 
 ### 3. Report Export
 - PDF format reports

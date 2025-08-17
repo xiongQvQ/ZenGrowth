@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "name": "Code Quality Analyzer",
+  "description": "Monitors source code files for changes and provides automated code quality analysis including code smells, design patterns, and best practices suggestions",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "**/*.py",
+      "**/*.js",
+      "**/*.ts",
+      "**/*.jsx",
+      "**/*.tsx",
+      "**/*.java",
+      "**/*.cpp",
+      "**/*.c",
+      "**/*.h",
+      "**/*.cs",
+      "**/*.go",
+      "**/*.rs",
+      "**/*.rb",
+      "**/*.php"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the modified code files for potential improvements. Focus on:\n\n1. **Code Smells**: Identify long methods, large classes, duplicate code, complex conditionals, and other maintainability issues\n2. **Design Patterns**: Suggest appropriate design patterns that could improve code structure and maintainability\n3. **Best Practices**: Review adherence to language-specific best practices, naming conventions, and coding standards\n4. **Performance**: Identify potential performance bottlenecks and suggest optimizations\n5. **Readability**: Suggest improvements for code clarity, documentation, and structure\n6. **Security**: Flag potential security vulnerabilities or unsafe practices\n7. **Testing**: Recommend areas that need better test coverage or suggest testable refactoring\n\nFor each suggestion, provide:\n- Clear explanation of the issue\n- Specific code examples showing the problem\n- Recommended solution with example implementation\n- Impact assessment (readability, maintainability, performance)\n- Priority level (high, medium, low)\n\nMaintain existing functionality while suggesting improvements. Focus on actionable recommendations that enhance code quality without breaking changes."
+  }
+}

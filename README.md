@@ -293,6 +293,8 @@ CPU_LIMIT=1.0                                   # CPU限制
 - 单个文件最大100MB
 - 自动数据验证和清洗
 
+![GA4数据上传](imgs/GA4data_upload.jpg)
+
 ### 2. 分析功能
 
 #### 🎯 事件分析
@@ -301,11 +303,15 @@ CPU_LIMIT=1.0                                   # CPU限制
 - 事件时间线可视化
 - 异常事件检测
 
+![事件分析](imgs/even_analysis.jpg)
+
 #### 📈 留存分析
 - 用户留存率计算
 - 留存热力图展示
 - 流失用户预测
 - 留存改进建议
+
+![留存分析](imgs/retention_analysis.jpg)
 
 #### 🔄 转化分析
 - 转化漏斗构建
@@ -313,17 +319,23 @@ CPU_LIMIT=1.0                                   # CPU限制
 - 多渠道转化对比
 - 转化优化建议
 
+![转化分析](imgs/conversion_analysis.jpg)
+
 #### 👥 用户分群
 - 基于行为的用户分群
 - RFM模型分析
 - 用户价值评估
 - 个性化策略建议
 
+![用户分群](imgs/user_segmentation.jpg)
+
 #### 🛤️ 路径分析
 - 用户行为路径挖掘
 - 关键路径识别
 - 路径优化建议
 - 导航模式分析
+
+![路径分析](imgs/path_analysis.jpg)
 
 ### 3. 报告导出
 - PDF格式报告
