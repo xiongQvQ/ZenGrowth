@@ -9,6 +9,12 @@ English Documentation | [中文文档](README.md)
 
 An automated user behavior analytics system powered by CrewAI multi-agent framework, integrated with Google Gemini and Volcano ARK APIs, providing intelligent GA4 data analysis and business insights.
 
+## 🎥 Demo Video
+
+[![ZenGrowth Demo Video](https://img.youtube.com/vi/yXLHEkLss9Q/0.jpg)](https://www.youtube.com/watch?v=yXLHEkLss9Q)
+
+Watch the complete product demonstration to learn how to use ZenGrowth for intelligent user behavior analytics.
+
 ## 🌟 Core Features
 
 ### 🤖 Multi-Agent Collaboration System

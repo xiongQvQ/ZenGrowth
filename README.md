@@ -9,6 +9,12 @@
 
 基于CrewAI多智能体框架的自动化用户行为分析系统，集成Google Gemini和Volcano ARK API，提供智能化的GA4数据分析和业务洞察。
 
+## 🎥 演示视频
+
+[![ZenGrowth 演示视频](https://img.youtube.com/vi/yXLHEkLss9Q/0.jpg)](https://www.youtube.com/watch?v=yXLHEkLss9Q)
+
+观看完整的产品演示，了解如何使用ZenGrowth进行智能化用户行为分析。
+
 ## 🌟 核心特性
 
 ### 🤖 多智能体协作系统
