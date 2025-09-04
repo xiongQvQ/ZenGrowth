@@ -1,280 +1,282 @@
-# ZenGrowth - 用户行为分析智能体平台
+# ZenGrowth - User Behavior Analytics AI Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![Streamlit](https://img.shields.io/badge/streamlit-app-red.svg)](https://streamlit.io/)
 
-[English Documentation](README_EN.md) | 中文文档
+English Documentation | [中文文档](README_ZH.md)
 
-基于CrewAI多智能体框架的自动化用户行为分析系统，集成Google Gemini和Volcano ARK API，提供智能化的GA4数据分析和业务洞察。
+An automated user behavior analytics system powered by CrewAI multi-agent framework, integrated with Google Gemini and Volcano ARK APIs, providing intelligent GA4 data analysis and business insights.
 
-## 🎥 演示视频
+## 🎥 Demo Video
 
-[![ZenGrowth 演示视频](https://img.youtube.com/vi/yXLHEkLss9Q/0.jpg)](https://www.youtube.com/watch?v=yXLHEkLss9Q)
+[![ZenGrowth Demo Video](https://img.youtube.com/vi/yXLHEkLss9Q/0.jpg)](https://www.youtube.com/watch?v=yXLHEkLss9Q)
 
-观看完整的产品演示，了解如何使用ZenGrowth进行智能化用户行为分析。
+Watch the complete product demonstration to learn how to use ZenGrowth for intelligent user behavior analytics.
 
-## 🌟 核心特性
+## 🌟 Core Features
 
-### 🤖 多智能体协作系统
-- **7个专业化AI智能体**：数据处理、事件分析、留存分析、转化分析、用户分群、路径分析、报告生成
-- **CrewAI框架**：智能体间协作和任务编排
-- **故障恢复机制**：智能体不可用时自动切换到简化引擎
+### 🤖 Multi-Agent Collaboration System
+- **7 Specialized AI Agents**: Data processing, event analysis, retention analysis, conversion analysis, user segmentation, path analysis, and report generation
+- **CrewAI Framework**: Agent collaboration and task orchestration
+- **Fault Recovery**: Automatic fallback to simplified engines when agents are unavailable
 
-### 🧠 双LLM提供商支持
-- **Google Gemini-2.5-pro**：主要AI分析引擎
-- **Volcano ARK API**：备用提供商和中文优化
-- **智能故障转移**：自动提供商切换和负载均衡
-- **多模态支持**：图像、文本综合分析
+### 🧠 Dual LLM Provider Support
+- **Google Gemini-2.5-pro**: Primary AI analysis engine
+- **Volcano ARK API**: Backup provider with Chinese optimization
+- **Intelligent Failover**: Automatic provider switching and load balancing
+- **Multimodal Support**: Comprehensive image and text analysis
 
-### 📊 全方位数据分析
-- **事件分析**：用户行为事件模式识别和趋势分析
-- **留存分析**：用户留存率计算和流失预测
-- **转化分析**：转化漏斗构建和瓶颈识别
-- **用户分群**：基于行为特征的智能用户分群
-- **路径分析**：用户行为路径挖掘和导航优化
+### 📊 Comprehensive Data Analysis
+- **Event Analysis**: User behavior event pattern recognition and trend analysis
+- **Retention Analysis**: User retention calculation and churn prediction
+- **Conversion Analysis**: Conversion funnel construction and bottleneck identification
+- **User Segmentation**: Intelligent user segmentation based on behavioral characteristics
+- **Path Analysis**: User behavior path mining and navigation optimization
 
-### 🎨 交互式可视化
-- **Streamlit界面**：现代化Web应用体验
-- **Plotly图表**：交互式数据可视化
-- **多语言支持**：中英文界面切换
-- **响应式设计**：支持多种设备和屏幕
+### 🎨 Interactive Visualization
+- **Streamlit Interface**: Modern web application experience
+- **Plotly Charts**: Interactive data visualization
+- **Multi-language Support**: Chinese/English interface switching
+- **Responsive Design**: Support for multiple devices and screens
 
-### 🔧 企业级特性
-- **Docker容器化**：生产环境部署优化
-- **配置管理**：灵活的环境配置和参数调优
-- **健康监控**：实时系统状态和性能监控
-- **安全性**：API密钥管理和访问控制
+### 🔧 Enterprise-Grade Features
+- **Docker Containerization**: Production environment deployment optimization
+- **Configuration Management**: Flexible environment configuration and parameter tuning
+- **Health Monitoring**: Real-time system status and performance monitoring
+- **Security**: API key management and access control
 
-## 🏗️ 技术架构
+## 🏗️ Technical Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    用户界面层 (Streamlit)                         │
+│                    UI Layer (Streamlit)                         │
 ├─────────────────────────────────────────────────────────────────┤
-│                 智能体编排层 (CrewAI + 故障恢复)                    │
+│              Agent Orchestration (CrewAI + Fault Recovery)       │
 ├─────────────────┬─────────────────┬─────────────────┬─────────────┤
-│   事件分析智能体   │   留存分析智能体   │   转化分析智能体   │   路径分析智能体  │
+│  Event Analysis │ Retention       │ Conversion      │ Path        │
+│     Agent       │  Analysis Agent │ Analysis Agent  │ Analysis    │
 ├─────────────────┼─────────────────┼─────────────────┼─────────────┤
-│   用户分群智能体   │   数据处理智能体   │   报告生成智能体   │   可视化引擎    │
+│  User Segment   │ Data Processing │ Report          │ Visualization│
+│     Agent       │     Agent       │ Generation Agent│   Engine     │
 ├─────────────────────────────────────────────────────────────────┤
-│                 LLM提供商层 (Google + Volcano)                   │
+│                LLM Provider Layer (Google + Volcano)            │
 ├─────────────────────────────────────────────────────────────────┤
-│                   数据处理层 (GA4 + 文件存储)                      │
+│                 Data Processing Layer (GA4 + File Storage)      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## 📋 系统要求
+## 📋 System Requirements
 
-### 🖥️ 本地运行
-- **Python**: 3.8+ (推荐3.9+)
-- **内存**: 8GB+ RAM (推荐16GB)
-- **存储**: 2GB+ 可用磁盘空间
-- **API密钥**: Google Gemini API 或 Volcano ARK API
+### 🖥️ Local Development
+- **Python**: 3.8+ (Recommended 3.9+)
+- **Memory**: 8GB+ RAM (Recommended 16GB)
+- **Storage**: 2GB+ available disk space
+- **API Keys**: Google Gemini API or Volcano ARK API
 
-### 🐳 Docker运行 (推荐)
+### 🐳 Docker Deployment (Recommended)
 - **Docker Engine**: 20.10+
 - **Docker Compose**: 2.0+
-- **内存**: 4GB+ RAM可用
-- **存储**: 10GB+ 可用磁盘空间
+- **Memory**: 4GB+ available RAM
+- **Storage**: 10GB+ available disk space
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 方式一：Docker部署 (推荐)
+### Option 1: Docker Deployment (Recommended)
 
-#### 1. 克隆项目
+#### 1. Clone Repository
 ```bash
 git clone https://github.com/your-repo/ZenGrowth.git
 cd ZenGrowth
 ```
 
-#### 2. 配置环境变量
+#### 2. Configure Environment Variables
 ```bash
-# 复制环境变量模板
+# Copy environment template
 cp .env.example .env
 
-# 编辑 .env 文件，至少配置以下其中一个API密钥：
+# Edit .env file, configure at least one API key:
 # GOOGLE_API_KEY=your_google_api_key_here
-# 或
+# or
 # ARK_API_KEY=your_volcano_ark_api_key_here
 ```
 
-#### 3. 启动服务
+#### 3. Start Services
 
-**开发环境：**
+**Development Environment:**
 ```bash
-# 使用部署脚本（推荐）
+# Using deployment script (recommended)
 ./deploy.sh -e development -a up -b
 
-# 或直接使用Docker Compose
+# Or direct Docker Compose
 docker-compose -f docker-compose.dev.yml up --build
 ```
 
-**生产环境：**
+**Production Environment:**
 ```bash
-# 使用部署脚本
+# Using deployment script
 ./deploy.sh -e production -a up -d
 
-# 或直接使用Docker Compose
+# Or direct Docker Compose
 docker-compose up -d
 ```
 
-#### 4. 访问应用
-- **主应用界面**: http://localhost:8501
-- **健康检查**: http://localhost:8502/health
-- **监控指标**: http://localhost:8502/metrics
+#### 4. Access Application
+- **Main Application**: http://localhost:8501
+- **Health Check**: http://localhost:8502/health
+- **Monitoring Metrics**: http://localhost:8502/metrics
 
-### 方式二：本地开发部署
+### Option 2: Local Development
 
-#### 1. 环境设置
+#### 1. Environment Setup
 ```bash
-# 克隆项目
+# Clone repository
 git clone https://github.com/your-repo/ZenGrowth.git
 cd ZenGrowth
 
-# 自动设置环境
+# Automated environment setup
 python setup.py
 
-# 激活虚拟环境
+# Activate virtual environment
 # Windows:
 venv\Scripts\activate
 # Unix/Linux/macOS:
 source venv/bin/activate
 ```
 
-#### 2. 配置API密钥
-编辑 `.env` 文件：
+#### 2. Configure API Keys
+Edit `.env` file:
 ```env
-# 必需配置（至少配置其中一个）
+# Required configuration (at least one)
 GOOGLE_API_KEY=your_google_api_key_here
 ARK_API_KEY=your_volcano_ark_api_key_here
 
-# 可选配置
+# Optional configuration
 DEFAULT_LLM_PROVIDER=google
 LLM_MODEL=gemini-2.5-pro
 LLM_TEMPERATURE=0.1
-APP_TITLE=ZenGrowth用户行为分析平台
+APP_TITLE=ZenGrowth Analytics Platform
 ```
 
-#### 3. 启动应用
+#### 3. Start Application
 ```bash
-# 标准启动
+# Standard startup
 streamlit run main.py
 
-# 或指定端口
+# Or specify port
 streamlit run main.py --server.port 8502
 
-# 或使用直接启动脚本
+# Or use direct startup script
 python start_app_direct.py
 ```
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 ZenGrowth/
-├── 📁 agents/                    # CrewAI智能体模块
-│   ├── conversion_analysis_agent.py     # 转化分析智能体
-│   ├── event_analysis_agent.py          # 事件分析智能体
-│   ├── retention_analysis_agent.py      # 留存分析智能体
-│   ├── user_segmentation_agent.py       # 用户分群智能体
-│   ├── path_analysis_agent.py           # 路径分析智能体
-│   └── shared/                          # 共享组件
-├── 📁 engines/                   # 分析引擎（智能体故障恢复）
-│   ├── conversion_analysis_engine.py    # 转化分析引擎
-│   ├── event_analysis_engine.py         # 事件分析引擎
-│   ├── retention_analysis_engine.py     # 留存分析引擎
-│   └── user_segmentation_engine.py      # 用户分群引擎
-├── 📁 ui/                        # 用户界面模块
-│   ├── components/                      # UI组件
-│   ├── pages/                          # 页面模块
-│   ├── layouts/                        # 布局组件
-│   └── state/                          # 状态管理
-├── 📁 tools/                     # 数据处理工具
-│   ├── ga4_data_parser.py              # GA4数据解析器
-│   ├── data_storage_manager.py         # 数据存储管理
-│   └── data_validator.py               # 数据验证器
-├── 📁 visualization/             # 可视化模块
-│   ├── chart_generator.py              # 图表生成器
-│   └── report_generator.py             # 报告生成器
-├── 📁 config/                    # 配置管理
-│   ├── settings.py                     # 系统配置
-│   ├── llm_provider_manager.py         # LLM提供商管理
-│   └── system_config.json              # 系统配置文件
-├── 📁 utils/                     # 工具函数
-│   ├── i18n.py                         # 国际化支持
-│   ├── config_manager.py               # 配置管理器
-│   └── performance_optimizer.py        # 性能优化器
-├── 📁 system/                    # 核心系统
-│   └── integration_manager_singleton.py # 集成管理器
-├── 📁 languages/                 # 多语言支持
-│   ├── en-US.json                      # 英文语言包
-│   └── zh-CN.json                      # 中文语言包
-├── 📁 data/                      # 数据存储目录
-├── 📁 logs/                      # 日志文件目录
-├── 📁 reports/                   # 报告输出目录
-├── 📄 main.py                    # 主应用入口
-├── 📄 requirements.txt           # 项目依赖
-├── 📄 docker-compose.yml         # Docker编排文件
-└── 📄 deploy.sh                  # 部署脚本
+├── 📁 agents/                    # CrewAI agent modules
+│   ├── conversion_analysis_agent.py     # Conversion analysis agent
+│   ├── event_analysis_agent.py          # Event analysis agent
+│   ├── retention_analysis_agent.py      # Retention analysis agent
+│   ├── user_segmentation_agent.py       # User segmentation agent
+│   ├── path_analysis_agent.py           # Path analysis agent
+│   └── shared/                          # Shared components
+├── 📁 engines/                   # Analysis engines (agent fallback)
+│   ├── conversion_analysis_engine.py    # Conversion analysis engine
+│   ├── event_analysis_engine.py         # Event analysis engine
+│   ├── retention_analysis_engine.py     # Retention analysis engine
+│   └── user_segmentation_engine.py      # User segmentation engine
+├── 📁 ui/                        # User interface modules
+│   ├── components/                      # UI components
+│   ├── pages/                          # Page modules
+│   ├── layouts/                        # Layout components
+│   └── state/                          # State management
+├── 📁 tools/                     # Data processing tools
+│   ├── ga4_data_parser.py              # GA4 data parser
+│   ├── data_storage_manager.py         # Data storage manager
+│   └── data_validator.py               # Data validator
+├── 📁 visualization/             # Visualization modules
+│   ├── chart_generator.py              # Chart generator
+│   └── report_generator.py             # Report generator
+├── 📁 config/                    # Configuration management
+│   ├── settings.py                     # System configuration
+│   ├── llm_provider_manager.py         # LLM provider manager
+│   └── system_config.json              # System configuration file
+├── 📁 utils/                     # Utility functions
+│   ├── i18n.py                         # Internationalization support
+│   ├── config_manager.py               # Configuration manager
+│   └── performance_optimizer.py        # Performance optimizer
+├── 📁 system/                    # Core system
+│   └── integration_manager_singleton.py # Integration manager
+├── 📁 languages/                 # Multi-language support
+│   ├── en-US.json                      # English language pack
+│   └── zh-CN.json                      # Chinese language pack
+├── 📁 data/                      # Data storage directory
+├── 📁 logs/                      # Log files directory
+├── 📁 reports/                   # Report output directory
+├── 📄 main.py                    # Main application entry
+├── 📄 requirements.txt           # Project dependencies
+├── 📄 docker-compose.yml         # Docker orchestration file
+└── 📄 deploy.sh                  # Deployment script
 ```
 
-## 🔧 配置指南
+## 🔧 Configuration Guide
 
-### 环境变量配置
+### Environment Variables Configuration
 
-#### 核心配置
+#### Core Configuration
 ```env
-# === API密钥配置（必需，至少配置一个） ===
-GOOGLE_API_KEY=your_google_api_key_here          # Google Gemini API密钥
-ARK_API_KEY=your_volcano_ark_api_key_here        # Volcano ARK API密钥
+# === API Key Configuration (Required, at least one) ===
+GOOGLE_API_KEY=your_google_api_key_here          # Google Gemini API key
+ARK_API_KEY=your_volcano_ark_api_key_here        # Volcano ARK API key
 
-# === LLM提供商配置 ===
-DEFAULT_LLM_PROVIDER=google                      # 默认提供商: google, volcano
-ENABLED_PROVIDERS=["google", "volcano"]          # 启用的提供商列表
-FALLBACK_ORDER=["google", "volcano"]             # 故障转移顺序
-ENABLE_FALLBACK=true                             # 启用故障转移
+# === LLM Provider Configuration ===
+DEFAULT_LLM_PROVIDER=google                      # Default provider: google, volcano
+ENABLED_PROVIDERS=["google", "volcano"]          # Enabled provider list
+FALLBACK_ORDER=["google", "volcano"]             # Failover order
+ENABLE_FALLBACK=true                             # Enable failover
 
-# === 模型配置 ===
-LLM_MODEL=gemini-2.5-pro                        # Google模型名称
-LLM_TEMPERATURE=0.1                             # 模型温度参数
-LLM_MAX_TOKENS=4000                             # 最大输出token数
+# === Model Configuration ===
+LLM_MODEL=gemini-2.5-pro                        # Google model name
+LLM_TEMPERATURE=0.1                             # Model temperature parameter
+LLM_MAX_TOKENS=4000                             # Maximum output tokens
 
-# === Volcano配置 ===
+# === Volcano Configuration ===
 ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
-ARK_MODEL=doubao-seed-1-6-250615               # Volcano模型名称
+ARK_MODEL=doubao-seed-1-6-250615               # Volcano model name
 
-# === 应用配置 ===
-APP_TITLE=ZenGrowth用户行为分析平台             # 应用标题
-LOG_LEVEL=INFO                                  # 日志级别
-STREAMLIT_SERVER_PORT=8501                      # 服务端口
+# === Application Configuration ===
+APP_TITLE=ZenGrowth Analytics Platform           # Application title
+LOG_LEVEL=INFO                                  # Log level
+STREAMLIT_SERVER_PORT=8501                      # Service port
 
-# === 多模态配置 ===
-ENABLE_MULTIMODAL=true                          # 启用多模态功能
-MAX_IMAGE_SIZE_MB=10                            # 最大图片大小
-SUPPORTED_IMAGE_FORMATS=["jpg","png","gif"]     # 支持的图片格式
+# === Multimodal Configuration ===
+ENABLE_MULTIMODAL=true                          # Enable multimodal features
+MAX_IMAGE_SIZE_MB=10                            # Maximum image size
+SUPPORTED_IMAGE_FORMATS=["jpg","png","gif"]     # Supported image formats
 ```
 
-#### Docker专用配置
+#### Docker-Specific Configuration
 ```env
-# === Docker特定配置 ===
-DOCKER_ENV=production                           # Docker环境标识
-CONTAINER_PORT=8501                             # 容器内部端口
-VOLUME_DATA_PATH=./data                         # 数据卷路径
-VOLUME_LOGS_PATH=./logs                         # 日志卷路径
+# === Docker Specific Configuration ===
+DOCKER_ENV=production                           # Docker environment identifier
+CONTAINER_PORT=8501                             # Container internal port
+VOLUME_DATA_PATH=./data                         # Data volume path
+VOLUME_LOGS_PATH=./logs                         # Log volume path
 
-# === 资源限制 ===
-MEMORY_LIMIT=2G                                 # 内存限制
-CPU_LIMIT=1.0                                   # CPU限制
+# === Resource Limits ===
+MEMORY_LIMIT=2G                                 # Memory limit
+CPU_LIMIT=1.0                                   # CPU limit
 ```
 
-### 系统配置文件
+### System Configuration File
 
 #### config/system_config.json
 ```json
 {
   "ui_settings": {
-    "language": "zh-CN",
+    "language": "en-US",
     "theme": "light",
     "sidebar_collapsed": false
   },
@@ -292,305 +294,305 @@ CPU_LIMIT=1.0                                   # CPU限制
 }
 ```
 
-## 📊 使用指南
+## 📊 User Guide
 
-### 1. 数据上传
-- 支持GA4导出的NDJSON格式文件
-- 单个文件最大100MB
-- 自动数据验证和清洗
+### 1. Data Upload
+- Supports GA4 exported NDJSON format files
+- Maximum file size: 100MB per file
+- Automatic data validation and cleaning
 
-![GA4数据上传](imgs/GA4data_upload.jpg)
+![GA4 Data Upload](imgs/GA4data_upload.jpg)
 
-### 2. 分析功能
+### 2. Analysis Features
 
-#### 🎯 事件分析
-- 事件趋势分析
-- 事件分布统计
-- 事件时间线可视化
-- 异常事件检测
+#### 🎯 Event Analysis
+- Event trend analysis
+- Event distribution statistics
+- Event timeline visualization
+- Anomaly detection
 
-![事件分析](imgs/even_analysis.jpg)
+![Event Analysis](imgs/even_analysis.jpg)
 
-#### 📈 留存分析
-- 用户留存率计算
-- 留存热力图展示
-- 流失用户预测
-- 留存改进建议
+#### 📈 Retention Analysis
+- User retention rate calculation
+- Retention heatmap visualization
+- Churn prediction
+- Retention improvement recommendations
 
-![留存分析](imgs/retention_analysis.jpg)
+![Retention Analysis](imgs/retention_analysis.jpg)
 
-#### 🔄 转化分析
-- 转化漏斗构建
-- 转化瓶颈识别
-- 多渠道转化对比
-- 转化优化建议
+#### 🔄 Conversion Analysis
+- Conversion funnel construction
+- Bottleneck identification
+- Multi-channel conversion comparison
+- Conversion optimization recommendations
 
-![转化分析](imgs/conversion_analysis.jpg)
+![Conversion Analysis](imgs/conversion_analysis.jpg)
 
-#### 👥 用户分群
-- 基于行为的用户分群
-- RFM模型分析
-- 用户价值评估
-- 个性化策略建议
+#### 👥 User Segmentation
+- Behavior-based user segmentation
+- RFM model analysis
+- User value assessment
+- Personalization strategy recommendations
 
-![用户分群](imgs/user_segmentation.jpg)
+![User Segmentation](imgs/user_segmentation.jpg)
 
-#### 🛤️ 路径分析
-- 用户行为路径挖掘
-- 关键路径识别
-- 路径优化建议
-- 导航模式分析
+#### 🛤️ Path Analysis
+- User behavior path mining
+- Critical path identification
+- Path optimization recommendations
+- Navigation pattern analysis
 
-![路径分析](imgs/path_analysis.jpg)
+![Path Analysis](imgs/path_analysis.jpg)
 
-### 3. 报告导出
-- PDF格式报告
-- Excel数据导出
-- JSON结构化数据
-- 图表PNG/SVG导出
+### 3. Report Export
+- PDF format reports
+- Excel data export
+- JSON structured data
+- Chart PNG/SVG export
 
-## 🤖 智能体详解
+## 🤖 Agent Details
 
-### 1. 数据处理智能体
-- **职责**：GA4数据解析、清洗、验证
-- **输出**：标准化数据结构、数据质量报告
+### 1. Data Processing Agent
+- **Responsibilities**: GA4 data parsing, cleaning, validation
+- **Output**: Standardized data structure, data quality reports
 
-### 2. 事件分析智能体
-- **职责**：用户事件模式识别、趋势分析
-- **输出**：事件洞察、异常检测、优化建议
+### 2. Event Analysis Agent
+- **Responsibilities**: User event pattern recognition, trend analysis
+- **Output**: Event insights, anomaly detection, optimization recommendations
 
-### 3. 留存分析智能体
-- **职责**：用户留存计算、流失预测
-- **输出**：留存报告、风险用户识别、改进策略
+### 3. Retention Analysis Agent
+- **Responsibilities**: User retention calculation, churn prediction
+- **Output**: Retention reports, at-risk user identification, improvement strategies
 
-### 4. 转化分析智能体
-- **职责**：转化漏斗分析、瓶颈识别
-- **输出**：转化报告、优化建议、A/B测试建议
+### 4. Conversion Analysis Agent
+- **Responsibilities**: Conversion funnel analysis, bottleneck identification
+- **Output**: Conversion reports, optimization recommendations, A/B test suggestions
 
-### 5. 用户分群智能体
-- **职责**：用户行为分群、价值评估
-- **输出**：用户画像、分群策略、个性化建议
+### 5. User Segmentation Agent
+- **Responsibilities**: User behavior segmentation, value assessment
+- **Output**: User profiles, segmentation strategies, personalization recommendations
 
-### 6. 路径分析智能体
-- **职责**：用户行为路径挖掘、导航优化
-- **输出**：路径图谱、关键节点、优化方案
+### 6. Path Analysis Agent
+- **Responsibilities**: User behavior path mining, navigation optimization
+- **Output**: Path maps, key nodes, optimization solutions
 
-### 7. 报告生成智能体
-- **职责**：综合分析结果、生成业务报告
-- **输出**：执行摘要、详细报告、行动计划
+### 7. Report Generation Agent
+- **Responsibilities**: Synthesize analysis results, generate business reports
+- **Output**: Executive summaries, detailed reports, action plans
 
-## 🛠️ 故障排除
+## 🛠️ Troubleshooting
 
-### Docker部署问题
+### Docker Deployment Issues
 
-#### 容器启动失败
+#### Container Startup Failure
 ```bash
-# 检查容器状态
+# Check container status
 docker-compose ps
 
-# 查看容器日志
+# View container logs
 docker-compose logs analytics-platform
 
-# 验证配置
+# Verify configuration
 ./deploy.sh -e development -a status
 ```
 
-#### API密钥问题
+#### API Key Issues
 ```bash
-# 检查环境变量
+# Check environment variables
 docker-compose exec analytics-platform env | grep API
 
-# 测试API连接
+# Test API connection
 curl http://localhost:8502/health/detailed
 ```
 
-#### 端口占用
+#### Port Conflicts
 ```bash
-# 检查端口占用
+# Check port usage
 netstat -tlnp | grep 8501
 
-# 修改端口配置
-# 编辑 docker-compose.yml:
+# Modify port configuration
+# Edit docker-compose.yml:
 ports:
-  - "8503:8501"  # 使用不同的主机端口
+  - "8503:8501"  # Use different host port
 ```
 
-#### 权限问题
+#### Permission Issues
 ```bash
-# 修复数据目录权限
+# Fix data directory permissions
 sudo chown -R 1000:1000 ./data ./logs ./reports
 
-# 检查Docker用户权限
+# Check Docker user permissions
 docker-compose exec analytics-platform whoami
 ```
 
-### 本地部署问题
+### Local Deployment Issues
 
-#### 依赖安装失败
+#### Dependency Installation Failure
 ```bash
-# 升级pip和setuptools
+# Upgrade pip and setuptools
 pip install --upgrade pip setuptools wheel
 
-# 清理缓存重新安装
+# Clear cache and reinstall
 pip cache purge
 pip install -r requirements.txt --no-cache-dir
 ```
 
-#### 内存不足
+#### Memory Insufficient
 ```bash
-# 调整配置参数
-# 编辑 config/system_config.json:
+# Adjust configuration parameters
+# Edit config/system_config.json:
 {
   "analysis_settings": {
-    "chunk_size": 5000,        # 减少处理块大小
-    "max_file_size_mb": 50     # 限制文件大小
+    "chunk_size": 5000,        # Reduce chunk size
+    "max_file_size_mb": 50     # Limit file size
   }
 }
 ```
 
-#### Python版本问题
+#### Python Version Issues
 ```bash
-# 检查Python版本
+# Check Python version
 python --version
 
-# 使用pyenv管理Python版本
+# Use pyenv to manage Python versions
 pyenv install 3.9.18
 pyenv local 3.9.18
 ```
 
-### 性能优化
+### Performance Optimization
 
-#### 内存优化
+#### Memory Optimization
 ```bash
-# 启用内存监控
+# Enable memory monitoring
 export LOG_LEVEL=DEBUG
 
-# 调整Streamlit配置
+# Adjust Streamlit configuration
 streamlit run main.py --server.maxUploadSize=50
 ```
 
-#### 缓存配置
+#### Cache Configuration
 ```python
-# 在 config/system_config.json 中调整
+# Adjust in config/system_config.json
 {
   "performance_settings": {
     "enable_caching": true,
-    "cache_ttl": 1800,         # 缓存时间30分钟
-    "max_concurrent_analysis": 2  # 减少并发分析数
+    "cache_ttl": 1800,         # Cache time 30 minutes
+    "max_concurrent_analysis": 2  # Reduce concurrent analysis
   }
 }
 ```
 
-## 🔐 安全注意事项
+## 🔐 Security Considerations
 
-### API密钥管理
-- ✅ 使用 `.env` 文件存储密钥
-- ✅ 不要将密钥提交到版本控制
-- ✅ 定期轮换API密钥
-- ✅ 使用环境变量覆盖
+### API Key Management
+- ✅ Use `.env` file to store keys
+- ✅ Do not commit keys to version control
+- ✅ Regularly rotate API keys
+- ✅ Use environment variable overrides
 
-### 数据安全
-- ✅ 本地文件存储，不上传外部服务
-- ✅ 数据处理完成后及时清理
-- ✅ 支持数据脱敏和匿名化
-- ✅ 遵循数据保护法规
+### Data Security
+- ✅ Local file storage, no external service uploads
+- ✅ Timely cleanup after data processing
+- ✅ Support data anonymization and masking
+- ✅ Comply with data protection regulations
 
-### 网络安全
-- ✅ Docker容器网络隔离
-- ✅ 健康检查端点限制
-- ✅ API请求频率限制
-- ✅ HTTPS配置支持
+### Network Security
+- ✅ Docker container network isolation
+- ✅ Health check endpoint restrictions
+- ✅ API request rate limiting
+- ✅ HTTPS configuration support
 
-## 📚 开发文档
+## 📚 Development Documentation
 
-### 扩展开发
+### Extension Development
 
-#### 添加新的智能体
-1. 在 `agents/` 目录创建智能体文件
-2. 继承 `BaseAgent` 类
-3. 实现必需的方法
-4. 在 `IntegrationManager` 中注册
+#### Adding New Agents
+1. Create agent file in `agents/` directory
+2. Inherit from `BaseAgent` class
+3. Implement required methods
+4. Register in `IntegrationManager`
 
-#### 添加新的分析引擎
-1. 在 `engines/` 目录创建引擎文件
-2. 实现标准分析接口
-3. 添加到故障恢复机制中
+#### Adding New Analysis Engines
+1. Create engine file in `engines/` directory
+2. Implement standard analysis interface
+3. Add to fault recovery mechanism
 
-#### 自定义可视化组件
-1. 在 `visualization/` 目录扩展
-2. 使用Plotly创建图表
-3. 集成到UI页面中
+#### Custom Visualization Components
+1. Extend in `visualization/` directory
+2. Create charts using Plotly
+3. Integrate into UI pages
 
-### API参考
+### API Reference
 
-#### 核心类
-- `IntegrationManager`: 智能体编排和管理
-- `GA4DataParser`: GA4数据解析
-- `ChartGenerator`: 图表生成
-- `LLMProviderManager`: LLM提供商管理
+#### Core Classes
+- `IntegrationManager`: Agent orchestration and management
+- `GA4DataParser`: GA4 data parsing
+- `ChartGenerator`: Chart generation
+- `LLMProviderManager`: LLM provider management
 
-#### 配置管理
-- `Settings`: Pydantic配置类
-- `ConfigManager`: 配置管理器
-- `I18n`: 国际化支持
+#### Configuration Management
+- `Settings`: Pydantic configuration class
+- `ConfigManager`: Configuration manager
+- `I18n`: Internationalization support
 
-## 🤝 贡献指南
+## 🤝 Contributing
 
-### 开发流程
-1. Fork项目仓库
-2. 创建功能分支
-3. 编写代码和测试
-4. 提交Pull Request
+### Development Workflow
+1. Fork the repository
+2. Create feature branch
+3. Write code and tests
+4. Submit Pull Request
 
-### 代码规范
-- 遵循PEP 8编码标准
-- 添加必要的注释和文档
-- 编写单元测试
-- 更新相关文档
+### Code Standards
+- Follow PEP 8 coding standards
+- Add necessary comments and documentation
+- Write unit tests
+- Update relevant documentation
 
-### 测试指南
+### Testing Guide
 ```bash
-# 运行所有测试
+# Run all tests
 python -m pytest tests/
 
-# 运行特定测试
+# Run specific tests
 python test_chart_internationalization.py
 python test_integration_manager_simple.py
 
-# 生成测试覆盖率报告
+# Generate test coverage report
 pytest --cov=. --cov-report=html
 ```
 
-## 📄 许可证
+## 📄 License
 
-本项目基于 [MIT许可证](LICENSE) 开源发布。
+This project is open source under the [MIT License](LICENSE).
 
-## 📞 支持与反馈
+## 📞 Support & Feedback
 
-### 获取帮助
-- 📖 **查看文档**: 详细文档和FAQ
-- 🐛 **提交Issue**: GitHub Issues报告问题
-- 💬 **社区讨论**: GitHub Discussions
-- 📧 **邮件支持**: 联系项目维护者
+### Getting Help
+- 📖 **Documentation**: Detailed docs and FAQ
+- 🐛 **Submit Issues**: GitHub Issues for bug reports
+- 💬 **Community**: GitHub Discussions
+- 📧 **Email Support**: Contact project maintainers
 
-### 问题排查流程
-1. 查看[故障排除指南](#🛠️-故障排除)
-2. 检查[系统健康状态](http://localhost:8502/health)
-3. 查看应用日志文件
-4. 提交详细的Issue报告
+### Issue Resolution Process
+1. Check [Troubleshooting Guide](#🛠️-troubleshooting)
+2. Verify [system health status](http://localhost:8502/health)
+3. Review application log files
+4. Submit detailed issue report
 
-### 贡献方式
-- 🌟 给项目加星标
-- 🐛 报告Bug和问题
-- 💡 提出功能建议
-- 📝 改进文档
-- 🔧 提交代码贡献
+### How to Contribute
+- 🌟 Star the project
+- 🐛 Report bugs and issues
+- 💡 Suggest new features
+- 📝 Improve documentation
+- 🔧 Submit code contributions
 
 ---
 
 <div align="center">
 
-**ZenGrowth** - 让数据分析更智能，让业务洞察更深入
+**ZenGrowth** - Making data analysis smarter, business insights deeper
 
 [🌟 Star](https://github.com/your-repo/ZenGrowth) | [🐛 Report Bug](https://github.com/your-repo/ZenGrowth/issues) | [💡 Request Feature](https://github.com/your-repo/ZenGrowth/issues)
 
